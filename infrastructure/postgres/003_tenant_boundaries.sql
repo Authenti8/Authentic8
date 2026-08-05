@@ -1,8 +1,17 @@
 BEGIN;
 
 -- BEGIN TENANT BOUNDARIES
-ALTER ROLE authenti8_backend
-  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_roles
+    WHERE rolname = 'authenti8_backend' AND (rolsuper OR rolbypassrls)
+  ) THEN
+    RAISE EXCEPTION 'authenti8_backend must not be superuser or bypass RLS';
+  END IF;
+END $$;
+
+ALTER ROLE authenti8_backend NOCREATEDB NOCREATEROLE NOINHERIT;
 
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM authenti8_backend;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM authenti8_backend;
