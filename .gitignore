@@ -24,12 +24,11 @@ dist/
 .env
 .env.*
 !.env.example
-!.env.migration.example
 
 # Deployment
 .vercel/
 
-# Local database volumes
+# Retained local database data from earlier development
 .postgres-data/
 
 # TypeScript

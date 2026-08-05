@@ -24,21 +24,20 @@ detection engine, and interview reporting are specified in
 
 - Node.js 20.19 or newer
 - npm 10 or newer
-- A Supabase project (or PostgreSQL 17 with Docker for the local fallback)
+- A Supabase project
 
 ## Local setup
 
 ```bash
 npm install
 cp .env.example .env
-cp .env.migration.example .env.migration
 ```
 
-Open `.env.migration` and paste the Direct Connection string from **Supabase
-Dashboard → Connect**. Migrations run as the database owner; this file must
-never be injected into the API or web deployment. The API uses the dedicated,
-non-owner `authenti8_backend` role created by the migrations. Supabase API keys
-are not required for Phases 1–5.
+Set `SUPABASE_URL` and one server key in `.env`. Prefer the modern
+`SUPABASE_SECRET_KEY`; `SUPABASE_SERVICE_ROLE_KEY` supports Supabase's legacy
+service-role JWT. Both are privileged server-only values and must never use a
+`NEXT_PUBLIC_` prefix or be sent to the browser. A publishable/anon key is not
+needed by the Phase 1–5 application.
 
 Environment values needed for the starter:
 
@@ -46,50 +45,34 @@ Environment values needed for the starter:
 | --- | --- | --- |
 | `APP_ORIGIN` | Yes | Public web origin; must be explicit HTTPS in production |
 | `API_ORIGIN` | Yes | API destination used by the Next.js rewrite |
-| `DATABASE_URL` | Yes | Session Pooler URL for the non-owner `authenti8_backend` API role |
-| `DATABASE_POOL_MAX` | Yes | Maximum PostgreSQL connections per API instance; defaults to 5 |
+| `SUPABASE_URL` | Yes | Supabase project URL used by the server-side Data API client |
+| `SUPABASE_SECRET_KEY` | Yes* | Preferred server-only secret key; use this or the legacy service-role key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes* | Legacy server-only fallback; do not configure both unless rotating keys |
+| `SUPABASE_PUBLISHABLE_KEY` | No | Reserved for future browser-side Supabase features |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | For Google login | Google OAuth web-application credentials |
 | `GOOGLE_CALLBACK_URL` | For Google login | Must exactly match the authorized redirect URI in Google Cloud |
 | `TRUSTED_PROXIES` | Yes | Known proxy IPs/CIDRs used to resolve the real client IP; keep API ingress private to them |
 | `SMTP_*` | Production only | Sends verification and password-reset emails |
 | `AUTH_MAIL_ENCRYPTION_KEY` | Production only | Base64-encoded 32-byte key that encrypts pending auth-email tokens in the durable outbox |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Not yet | Reserved for later Supabase Storage integration |
+Apply migrations using **Supabase Dashboard → SQL Editor**:
 
-`DATABASE_MIGRATION_URL` exists only in `.env.migration` or in a dedicated
-migration job. The running API rejects deployments that expose this owner
-credential to it.
+- For an empty project, apply `001` through `008` once, in numeric order.
+- For an existing Authenti8 project, first run
+  `SELECT version FROM schema_migrations ORDER BY applied_at;`, then apply only
+  the missing files. A project already on `006` should apply `007` and `008`.
 
-Apply the migrations using the owner connection:
+Do not rerun an applied migration. Migrations `007` and `008` install the
+server-only RPC functions and grant them only to Supabase's `service_role`.
+Migration `007` also disables the obsolete `authenti8_backend` login used by
+earlier installations. The application then uses HTTPS through Supabase's Data
+API—there is no database URL, connection pooler, or migration credential in the
+running application.
 
-```bash
-npm run db:migrate
-```
-
-In the Supabase SQL editor, give the generated backend role a unique password:
-
-```sql
-ALTER ROLE authenti8_backend LOGIN PASSWORD 'GENERATE_A_LONG_UNIQUE_PASSWORD';
-```
-
-Put that role and password into the `DATABASE_URL` Session Pooler value shown in
-`.env.example`. Do not use the `postgres` owner URL for application traffic.
-Then install the Git hooks:
+Install the Git hooks:
 
 ```bash
 npm run hooks:install
 ```
-
-For a local database, start Docker, put the documented owner URL in
-`.env.migration`, and run the migration:
-
-```bash
-docker compose up -d postgres
-npm run db:migrate
-docker compose exec postgres psql -U authenti8 -d authenti8
-```
-
-Run `\password authenti8_backend` inside `psql`, then put the local backend-role
-URL from `.env.example` into `DATABASE_URL`.
 
 Start the Next.js web app and NestJS API together:
 
@@ -172,13 +155,13 @@ first deployment so failing changes cannot be merged or deployed.
 - API DTOs reject unknown or invalid fields.
 - Cross-origin mutations are blocked.
 - OAuth state is bound to a short-lived HttpOnly browser cookie.
-- Authentication rate limits are atomic and shared through PostgreSQL.
+- Authentication rate limits are atomic and shared through Supabase Postgres.
 - Login throttling is enforced by trusted client IP; account counters are not
   used as lockouts that an attacker could trigger against another user.
-- Every Authenti8 table has RLS enabled; Supabase browser roles have no policy,
-  while the dedicated non-owner backend role is explicitly permitted.
-- The database owner credential is reserved for migrations and is never used by
-  the running API.
+- Every Authenti8 table has RLS enabled; Supabase browser roles have no policy.
+- Privileged operations are narrow transactional RPC functions callable only
+  with the server-side Supabase secret/service-role key.
+- The running API has no database password, connection string, or pooler.
 - Protected data is checked against the database close to the API data source.
 - Organization creation, membership, policy, subscription, credit ledger, and
   audit records are written in one transaction.

@@ -19,7 +19,8 @@ jobs:
     env:
       APP_ORIGIN: https://app.ci.authenti8.example
       API_ORIGIN: https://api.ci.authenti8.example
-      DATABASE_URL: postgresql://authenti8_backend:ci@database.invalid/authenti8
+      SUPABASE_URL: https://ci.supabase.invalid
+      SUPABASE_SECRET_KEY: ci-secret-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

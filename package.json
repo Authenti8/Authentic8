@@ -13,7 +13,6 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "npm run build:foundation && npm run typecheck -w @authenti8/api && npm run typecheck -w @authenti8/web",
     "test": "npm run test -w @authenti8/api && npm run test -w @authenti8/validation",
-    "db:migrate": "npm run db:migrate -w @authenti8/api",
     "guardian": "./guardian.sh",
     "guardian:quality": "./guardian.sh quality",
     "guardian:functionality": "./guardian.sh functionality",

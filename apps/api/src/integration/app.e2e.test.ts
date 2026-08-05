@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, test } from "node:test";
@@ -8,19 +7,18 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import { DataType, newDb } from "pg-mem";
-import type { Pool, PoolClient, QueryResultRow } from "pg";
 import request from "supertest";
 import { AppModule } from "../app.module.js";
 import { configureApplication } from "../application.js";
 import { loadConfig } from "../config.js";
-import { DatabaseService } from "../database/database.service.js";
+import { SupabaseService } from "../supabase/supabase.service.js";
 
 process.env.GOOGLE_CLIENT_ID = "test-client";
 process.env.GOOGLE_CLIENT_SECRET = "test-secret";
-process.env.DATABASE_URL ??= "postgresql://integration.invalid/authenti8";
+process.env.SUPABASE_URL ??= "https://integration.supabase.invalid";
+process.env.SUPABASE_SECRET_KEY ??= "test-secret-key";
 
-type Harness = { app: INestApplication; database: TestDatabase };
+type Harness = { app: INestApplication; database: TestSupabase };
 const activeHarnesses: Harness[] = [];
 
 afterEach(async () => {
@@ -96,6 +94,14 @@ test("email verification is bound to the matching signup password", async () => 
   assert.equal(verified.status, 201);
   assert.equal((await loginAttempt(http, "203.0.113.30", attackerPassword, victimEmail)).status, 401);
   assert.equal((await loginAttempt(http, "203.0.113.31", victimPassword, victimEmail)).status, 201);
+});
+
+test("signup recovers when another request creates the user first", async () => {
+  const { app, database } = await createHarness();
+  database.simulateConcurrentUserCreationOnce();
+  const signup = await request(app.getHttpServer()).post("/v1/auth/signup").send(validSignup());
+  assert.equal(signup.status, 201);
+  assert.ok(tokenFromPreview(signup.body.previewUrl));
 });
 
 test("Google login sets browser-bound state and IP limits are enforced", async () => {
@@ -194,7 +200,7 @@ test("email actions are not globally locked by requests from other clients", asy
   }
 });
 
-test("the complete production migration enables backend RLS", async () => {
+test("the production migration enables RLS and restricts Data API functions", async () => {
   const database = new PGlite({ extensions: { pgcrypto } });
   try {
     const migrations = loadProductionMigrations();
@@ -206,13 +212,15 @@ test("the complete production migration enables backend RLS", async () => {
     assert.equal(role.rows[0]?.safe, true);
     const privileges = await database.query<{ safe: boolean }>(backendPrivilegesQuery);
     assert.equal(privileges.rows[0]?.safe, true);
-    await assertTenantBoundary(database);
+    await assertRpcPermissions(database);
+    await assertLegacyRoleCannotRead(database);
+    await assertRateLimitCleanupIsBounded(database);
   } finally {
     await database.close();
   }
 });
 
-test("tenant hardening preserves an existing runtime login role", async () => {
+test("the Supabase migration disables an existing runtime login role", async () => {
   const database = new PGlite({ extensions: { pgcrypto } });
   try {
     const migrations = loadProductionMigrationFiles();
@@ -222,16 +230,16 @@ test("tenant hardening preserves an existing runtime login role", async () => {
     const role = await database.query<{ rolcanlogin: boolean }>(
       "SELECT rolcanlogin FROM pg_roles WHERE rolname = 'authenti8_backend'",
     );
-    assert.equal(role.rows[0]?.rolcanlogin, true);
+    assert.equal(role.rows[0]?.rolcanlogin, false);
   } finally {
     await database.close();
   }
 });
 
 async function createHarness() {
-  const database = await TestDatabase.create();
+  const database = await TestSupabase.create();
   const testingModule = await Test.createTestingModule({ imports: [AppModule] })
-    .overrideProvider(DatabaseService).useValue(database).compile();
+    .overrideProvider(SupabaseService).useValue(database).compile();
   const app = testingModule.createNestApplication<NestExpressApplication>();
   configureApplication(app, loadConfig());
   await app.listen(0, "127.0.0.1");
@@ -240,45 +248,49 @@ async function createHarness() {
   return harness;
 }
 
-class TestDatabase {
-  private constructor(private readonly pool: Pool) {}
+class TestSupabase {
+  private concurrentUserCreation = false;
+
+  private constructor(private readonly database: PGlite) {}
 
   static async create() {
-    const memory = newDb();
-    memory.registerExtension("pgcrypto", (schema) => {
-      schema.registerFunction({
-        name: "gen_random_uuid",
-        returns: DataType.uuid,
-        implementation: randomUUID,
-        impure: true,
-      });
-    });
-    memory.public.none(loadPgMemMigration());
-    const adapter = memory.adapters.createPg();
-    return new TestDatabase(new adapter.Pool() as unknown as Pool);
+    const database = new PGlite({ extensions: { pgcrypto } });
+    await database.exec(loadProductionMigrations());
+    return new TestSupabase(database);
   }
 
-  query<T extends QueryResultRow>(text: string, values: unknown[] = []) {
-    return this.pool.query<T>(text, values);
-  }
-
-  async transaction<T>(work: (client: PoolClient) => Promise<T>) {
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      const result = await work(client);
-      await client.query("COMMIT");
-      return result;
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
+  async rpc<T>(name: string, input: Record<string, unknown> = {}) {
+    if (!/^authenti8_[a-z_]+$/.test(name)) throw new Error("Invalid test RPC name");
+    if (name === "authenti8_create_user" && this.concurrentUserCreation) {
+      this.concurrentUserCreation = false;
+      await this.callRpc(name, input);
+      return null as T;
     }
+    return this.callRpc<T>(name, input);
+  }
+
+  simulateConcurrentUserCreationOnce() {
+    this.concurrentUserCreation = true;
+  }
+
+  private async callRpc<T>(name: string, input: Record<string, unknown>) {
+    const result = await this.database.query<{ value: T }>(
+      `SELECT ${name}($1::jsonb) AS value`,
+      [JSON.stringify(input)],
+    );
+    return result.rows[0]?.value as T;
+  }
+
+  query<T extends Record<string, unknown>>(text: string, values: unknown[] = []) {
+    return this.database.query<T>(text, values);
+  }
+
+  exec(sql: string) {
+    return this.database.exec(sql);
   }
 
   async close() {
-    await this.pool.end();
+    await this.database.close();
   }
 }
 
@@ -320,34 +332,6 @@ function loadProductionMigrationFiles() {
     .map((file) => readFileSync(resolve(directory, file), "utf8"));
 }
 
-function loadPgMemMigration() {
-  return loadProductionMigrations()
-    .replace(
-      /-- BEGIN AUTH EMAIL OUTBOX[\s\S]*?-- END AUTH EMAIL OUTBOX/g,
-      "-- The email outbox is exercised by the PGlite migration test.",
-    )
-    .replace(
-      /DO \$\$[\s\S]*?ENABLE ROW LEVEL SECURITY[\s\S]*?END \$\$;/,
-      "-- Initial RLS is exercised by the PGlite migration test.",
-    )
-    .replace(
-      /-- BEGIN BACKEND ROLE AND RLS[\s\S]*?-- END BACKEND ROLE AND RLS/,
-      "-- Backend policy is exercised by the PGlite migration test.",
-    )
-    .replace(
-      /-- BEGIN TENANT BOUNDARIES[\s\S]*?-- END TENANT BOUNDARIES/,
-      "-- Tenant boundaries are exercised by the PGlite migration test.",
-    )
-    .replace(
-      /-- BEGIN ONBOARDING BOUNDARY[\s\S]*?-- END ONBOARDING BOUNDARY/,
-      "-- Onboarding boundary is exercised by the PGlite migration test.",
-    )
-    .replace(
-      /-- BEGIN AUTH DELIVERY RLS[\s\S]*?-- END AUTH DELIVERY RLS/,
-      "-- Auth delivery RLS is exercised by the PGlite migration test.",
-    );
-}
-
 function productionTableNames(migration: string) {
   const names = [...migration.matchAll(/CREATE TABLE(?: IF NOT EXISTS)?\s+([a-z_]+)/gi)]
     .map((match) => match[1]!);
@@ -372,34 +356,54 @@ async function loginAttempt(
   });
 }
 
-async function assertTenantBoundary(database: PGlite) {
-  await database.exec(tenantSeedSql);
-  await database.exec(`SET ROLE authenti8_backend;
-    SELECT set_config('app.user_id', '${tenantUserA}', false);`);
+async function assertRpcPermissions(database: PGlite) {
+  for (const role of ["anon", "authenticated"]) {
+    await database.exec(`SET ROLE ${role}`);
+    try {
+      await assert.rejects(database.query("SELECT authenti8_health('{}'::jsonb)"));
+      await assert.rejects(
+        database.query("SELECT authenti8_has_organization_access(NULL::UUID)"),
+      );
+      await assert.rejects(
+        database.query("SELECT authenti8_create_organization('{}'::jsonb)"),
+      );
+    } finally {
+      await database.exec("RESET ROLE");
+    }
+  }
+  await database.exec("SET ROLE service_role");
   try {
-    const visible = await database.query<{ id: string }>("SELECT id FROM organizations");
-    assert.deepEqual(visible.rows.map((row) => row.id), [tenantOrganizationA]);
-    await assert.rejects(database.exec(`INSERT INTO organization_members
-      (organization_id, user_id, role, job_role)
-      VALUES ('${tenantOrganizationB}', '${tenantUserA}', 'OWNER', 'Founder')`));
-    await database.exec(
-      `SELECT set_config('app.onboarding_organization_id', '${tenantOrganizationC}', false)`,
+    const health = await database.query<{ value: { ok: boolean } }>(
+      "SELECT authenti8_health('{}'::jsonb) AS value",
     );
-    await database.exec(`INSERT INTO organizations(
-      id, name, domain, company_size, expected_monthly_interviews, default_timezone
-    ) VALUES ('${tenantOrganizationC}', 'Tenant C', 'c.example.com', '1-10', 1, 'UTC')`);
-    await database.exec(`INSERT INTO organization_members
-      (organization_id, user_id, role, job_role)
-      VALUES ('${tenantOrganizationC}', '${tenantUserA}', 'OWNER', 'Founder')`);
-    await database.exec(`INSERT INTO audit_logs
-      (organization_id, actor_user_id, action, target_type)
-      VALUES ('${tenantOrganizationA}', '${tenantUserA}', 'TEST', 'test')`);
-    await assert.rejects(database.exec(`INSERT INTO audit_logs
-      (organization_id, actor_user_id, action, target_type)
-      VALUES ('${tenantOrganizationB}', '${tenantUserA}', 'TEST', 'test')`));
+    assert.equal(health.rows[0]?.value.ok, true);
   } finally {
     await database.exec("RESET ROLE");
   }
+}
+
+async function assertLegacyRoleCannotRead(database: PGlite) {
+  await database.exec("SET ROLE authenti8_backend");
+  try {
+    await assert.rejects(database.query("SELECT id FROM users"));
+  } finally {
+    await database.exec("RESET ROLE");
+  }
+}
+
+async function assertRateLimitCleanupIsBounded(database: PGlite) {
+  await database.exec(`INSERT INTO auth_rate_limits(
+    key_hash, request_count, window_started_at, expires_at
+  ) SELECT 'expired-' || value, 1, now() - interval '2 hours', now() - interval '1 hour'
+    FROM generate_series(1, 150) AS value`);
+  const cleanup = await database.query<{ removed: number }>(
+    "SELECT authenti8_cleanup_rate_limits('{}'::jsonb) AS removed",
+  );
+  assert.equal(cleanup.rows[0]?.removed, 100);
+  const remaining = await database.query<{ count: number }>(
+    "SELECT count(*)::INTEGER AS count FROM auth_rate_limits WHERE expires_at <= now()",
+  );
+  assert.equal(remaining.rows[0]?.count, 50);
 }
 
 const rlsTablesQuery = `
@@ -414,36 +418,16 @@ const rlsTablesQuery = `
 
 const backendRoleQuery = `
   SELECT (NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
-    AND NOT rolbypassrls) AS safe
+    AND NOT rolbypassrls AND NOT rolcanlogin) AS safe
   FROM pg_roles WHERE rolname = 'authenti8_backend'`;
 
 const backendPrivilegesQuery = `
   SELECT (
     NOT has_table_privilege('authenti8_backend', 'schema_migrations', 'SELECT')
-    AND has_table_privilege('authenti8_backend', 'auth_email_outbox', 'DELETE')
+    AND NOT has_table_privilege('authenti8_backend', 'users', 'SELECT')
+    AND NOT has_table_privilege('authenti8_backend', 'auth_email_outbox', 'DELETE')
     AND NOT has_table_privilege('authenti8_backend', 'audit_logs', 'UPDATE')
     AND NOT has_table_privilege('authenti8_backend', 'audit_logs', 'DELETE')
     AND NOT has_table_privilege('authenti8_backend', 'credit_transactions', 'UPDATE')
     AND NOT has_table_privilege('authenti8_backend', 'telemetry_events', 'SELECT')
   ) AS safe`;
-
-const tenantUserA = "00000000-0000-4000-8000-000000000001";
-const tenantUserB = "00000000-0000-4000-8000-000000000002";
-const tenantOrganizationA = "10000000-0000-4000-8000-000000000001";
-const tenantOrganizationB = "10000000-0000-4000-8000-000000000002";
-const tenantOrganizationC = "10000000-0000-4000-8000-000000000003";
-
-const tenantSeedSql = `
-  INSERT INTO users(id, email, normalized_email, full_name, email_verified_at)
-  VALUES
-    ('${tenantUserA}', 'a@example.com', 'a@example.com', 'Tenant A', now()),
-    ('${tenantUserB}', 'b@example.com', 'b@example.com', 'Tenant B', now());
-  INSERT INTO organizations(
-    id, name, domain, company_size, expected_monthly_interviews, default_timezone
-  ) VALUES
-    ('${tenantOrganizationA}', 'Tenant A', 'a.example.com', '1-10', 1, 'UTC'),
-    ('${tenantOrganizationB}', 'Tenant B', 'b.example.com', '1-10', 1, 'UTC');
-  INSERT INTO organization_members(organization_id, user_id, role, job_role)
-  VALUES
-    ('${tenantOrganizationA}', '${tenantUserA}', 'OWNER', 'Founder'),
-    ('${tenantOrganizationB}', '${tenantUserB}', 'OWNER', 'Founder');`;

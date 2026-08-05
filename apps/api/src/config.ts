@@ -14,7 +14,8 @@ function required(name: string) {
 
 export function loadConfig() {
   const nodeEnv = process.env.NODE_ENV ?? "development";
-  const databaseUrl = required("DATABASE_URL");
+  const supabaseUrl = supabaseApiUrl(nodeEnv);
+  const supabaseSecretKey = supabaseServerKey();
   const appOrigin = applicationOrigin(nodeEnv);
   const google = googleConfig(nodeEnv);
   const smtp = {
@@ -28,12 +29,6 @@ export function loadConfig() {
   if (nodeEnv === "production" && !smtp.host) {
     throw new Error("Missing required production environment variable: SMTP_HOST");
   }
-  if (nodeEnv === "production" && databaseRole(databaseUrl) !== "authenti8_backend") {
-    throw new Error("DATABASE_URL must use the non-owner authenti8_backend role in production");
-  }
-  if (nodeEnv === "production" && process.env.DATABASE_MIGRATION_URL?.trim()) {
-    throw new Error("DATABASE_MIGRATION_URL must not be available to the running API");
-  }
   const mailEncryptionKey = encryptionKey(nodeEnv);
   return {
     nodeEnv,
@@ -44,8 +39,8 @@ export function loadConfig() {
       .map((value) => value.trim())
       .filter(Boolean),
     appOrigin,
-    databaseUrl,
-    databasePoolMax: Number(process.env.DATABASE_POOL_MAX ?? 5),
+    supabaseUrl,
+    supabaseSecretKey,
     ...google,
     smtp,
     mailEncryptionKey,
@@ -63,26 +58,31 @@ function encryptionKey(nodeEnv: string) {
   return value;
 }
 
-export function loadMigrationConfig() {
-  loadEnvironment({
-    path: resolve(process.cwd(), "../../.env.migration"),
-    quiet: true,
-    override: true,
-  });
-  loadEnvironment({
-    path: resolve(process.cwd(), ".env.migration"),
-    quiet: true,
-    override: true,
-  });
-  return { databaseUrl: required("DATABASE_MIGRATION_URL") };
+function supabaseApiUrl(nodeEnv: string) {
+  const value = required("SUPABASE_URL");
+  try {
+    const url = new URL(value);
+    const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    const localHttp = nodeEnv !== "production" && loopback && url.protocol === "http:";
+    if (url.protocol !== "https:" && !localHttp) throw new Error("insecure URL");
+    if (url.username || url.password) throw new Error("credentials in URL");
+    return url.origin;
+  } catch {
+    throw new Error(
+      "SUPABASE_URL must use HTTPS, except for an HTTP loopback URL in development",
+    );
+  }
 }
 
-function databaseRole(connectionString: string) {
-  try {
-    return decodeURIComponent(new URL(connectionString).username).split(".")[0];
-  } catch {
-    throw new Error("DATABASE_URL must be a valid PostgreSQL connection URL");
+function supabaseServerKey() {
+  const key = process.env.SUPABASE_SECRET_KEY?.trim()
+    || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!key) {
+    throw new Error(
+      "Missing required environment variable: SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY",
+    );
   }
+  return key;
 }
 
 function applicationOrigin(nodeEnv: string) {

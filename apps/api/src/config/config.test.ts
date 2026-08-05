@@ -16,17 +16,41 @@ test("production requires an email outbox encryption key", () => {
   });
 });
 
-test("production refuses to run with the migration-owner database role", () => {
+test("production requires a Supabase secret key", () => {
   withProductionEnvironment(() => {
-    process.env.DATABASE_URL = "postgresql://postgres:secret@database.example.com/authenti8";
-    assert.throws(() => loadConfig(), /authenti8_backend/);
+    delete process.env.SUPABASE_SECRET_KEY;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    assert.throws(() => loadConfig(), /SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY/);
   });
 });
 
-test("production refuses migration-owner secrets in the API process", () => {
+test("Supabase URL must be valid", () => {
   withProductionEnvironment(() => {
-    process.env.DATABASE_MIGRATION_URL = "postgresql://owner:secret@database.example.com/db";
-    assert.throws(() => loadConfig(), /must not be available/);
+    process.env.SUPABASE_URL = "not-a-url";
+    assert.throws(() => loadConfig(), /SUPABASE_URL must use HTTPS/);
+  });
+});
+
+test("production rejects an insecure Supabase URL", () => {
+  withProductionEnvironment(() => {
+    process.env.SUPABASE_URL = "http://project.supabase.co";
+    assert.throws(() => loadConfig(), /SUPABASE_URL must use HTTPS/);
+  });
+});
+
+test("development permits a loopback Supabase URL", () => {
+  withProductionEnvironment(() => {
+    process.env.NODE_ENV = "development";
+    process.env.SUPABASE_URL = "http://127.0.0.1:54321";
+    assert.equal(loadConfig().supabaseUrl, "http://127.0.0.1:54321");
+  });
+});
+
+test("development permits an IPv6 loopback Supabase URL", () => {
+  withProductionEnvironment(() => {
+    process.env.NODE_ENV = "development";
+    process.env.SUPABASE_URL = "http://[::1]:54321";
+    assert.equal(loadConfig().supabaseUrl, "http://[::1]:54321");
   });
 });
 
@@ -55,17 +79,18 @@ test("configured Google login requires an explicit production callback", () => {
 
 function withProductionEnvironment(run: () => void) {
   const names = [
-    "NODE_ENV", "SMTP_HOST", "DATABASE_URL", "APP_ORIGIN",
-    "DATABASE_MIGRATION_URL", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
+    "NODE_ENV", "SMTP_HOST", "SUPABASE_URL", "SUPABASE_SECRET_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY", "APP_ORIGIN",
+    "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CALLBACK_URL", "AUTH_MAIL_ENCRYPTION_KEY",
   ];
   const previous = new Map(names.map((name) => [name, process.env[name]]));
   process.env.NODE_ENV = "production";
   process.env.SMTP_HOST = "smtp.example.com";
-  process.env.DATABASE_URL = backendDatabaseUrl;
+  process.env.SUPABASE_URL = "https://project.supabase.co";
+  process.env.SUPABASE_SECRET_KEY = "test-secret-key";
   process.env.APP_ORIGIN = "https://app.authenti8.example";
   process.env.AUTH_MAIL_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
-  delete process.env.DATABASE_MIGRATION_URL;
   delete process.env.GOOGLE_CLIENT_ID;
   delete process.env.GOOGLE_CLIENT_SECRET;
   delete process.env.GOOGLE_CALLBACK_URL;
@@ -80,6 +105,3 @@ function restoreEnvironment(name: string, value: string | undefined) {
   if (value === undefined) delete process.env[name];
   else process.env[name] = value;
 }
-
-const backendDatabaseUrl =
-  "postgresql://authenti8_backend:secret@database.example.com/authenti8";

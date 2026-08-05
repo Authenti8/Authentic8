@@ -1,14 +1,14 @@
 import { Controller, Get, Inject } from "@nestjs/common";
 import { telemetrySchemaVersion } from "@authenti8/event-schemas";
-import { DatabaseService } from "./database/database.service.js";
+import { SupabaseService } from "./supabase/supabase.service.js";
 
 @Controller("health")
 export class HealthController {
-  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
+  constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService) {}
 
   @Get()
   async health() {
-    await this.db.query("SELECT 1");
+    await this.supabase.rpc("authenti8_health");
     return { status: "ok", service: "authenti8-api", telemetrySchemaVersion };
   }
 }
