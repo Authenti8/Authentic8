@@ -17,6 +17,9 @@ process.env.GOOGLE_CLIENT_ID = "test-client";
 process.env.GOOGLE_CLIENT_SECRET = "test-secret";
 process.env.SUPABASE_URL ??= "https://integration.supabase.invalid";
 process.env.SUPABASE_SECRET_KEY ??= "test-secret-key";
+process.env.SMTP_HOST = "";
+process.env.SMTP_USER = "";
+process.env.SMTP_PASSWORD = "";
 
 type Harness = { app: INestApplication; database: TestSupabase };
 const activeHarnesses: Harness[] = [];
