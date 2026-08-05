@@ -2,30 +2,29 @@
   "name": "authenti8",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint --max-warnings=0",
-    "typecheck": "tsc --noEmit --pretty false",
+    "dev": "concurrently -n web,api -c blue,cyan \"npm run dev -w @authenti8/web\" \"npm run dev -w @authenti8/api\"",
+    "build": "npm run build:foundation && npm run build -w @authenti8/api && npm run build -w @authenti8/web",
+    "build:foundation": "npm run build -w @authenti8/contracts && npm run build -w @authenti8/event-schemas && npm run build -w @authenti8/detection-rules && npm run build -w @authenti8/validation && npm run build -w @authenti8/security && npm run build -w @authenti8/ui && npm run build -w @authenti8/recruiter-extension && npm run build -w @authenti8/candidate-extension && npm run build -w @authenti8/windows-agent && npm run build -w @authenti8/macos-agent",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "npm run build:foundation && npm run typecheck -w @authenti8/api && npm run typecheck -w @authenti8/web",
+    "test": "npm run test -w @authenti8/api && npm run test -w @authenti8/validation",
+    "db:migrate": "npm run db:migrate -w @authenti8/api",
     "guardian": "./guardian.sh",
     "guardian:quality": "./guardian.sh quality",
     "guardian:functionality": "./guardian.sh functionality",
     "hooks:install": "git config core.hooksPath .githooks"
   },
-  "dependencies": {
-    "next": "16.3.0",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
-  },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "concurrently": "^9.2.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
-    "tailwindcss": "^4",
+    "tsx": "^4.23.7",
     "typescript": "^5"
   }
 }

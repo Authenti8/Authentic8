@@ -1,0 +1,27 @@
+{
+  "name": "@authenti8/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "prebuild": "npm run build -w @authenti8/contracts && npm run build -w @authenti8/event-schemas",
+    "build": "next build --webpack",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit --pretty false"
+  },
+  "dependencies": {
+    "@authenti8/contracts": "0.1.0",
+    "@authenti8/event-schemas": "0.1.0",
+    "@next/env": "16.3.0",
+    "lucide-react": "^1.28.0",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4"
+  }
+}

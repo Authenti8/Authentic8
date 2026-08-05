@@ -7,6 +7,11 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
+    settings: {
+      next: {
+        rootDir: "apps/web/",
+      },
+    },
     rules: {
       "max-lines": ["error", { max: 500 }],
       "max-lines-per-function": [
@@ -19,6 +24,9 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/.test-dist/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

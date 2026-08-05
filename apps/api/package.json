@@ -1,0 +1,39 @@
+{
+  "name": "@authenti8/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "prebuild": "npm run build -w @authenti8/contracts && npm run build -w @authenti8/event-schemas",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/**/*.test.js",
+    "db:migrate": "tsx src/database/migrate.ts"
+  },
+  "dependencies": {
+    "@authenti8/contracts": "0.1.0",
+    "@authenti8/event-schemas": "0.1.0",
+    "@nestjs/common": "^11.1.28",
+    "@nestjs/core": "^11.1.28",
+    "@nestjs/platform-express": "^11.1.28",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "dotenv": "^17.4.2",
+    "nodemailer": "^9.0.4",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "@nestjs/cli": "^11.0.24",
+    "@nestjs/testing": "^11.1.28",
+    "@types/express": "^5.0.6",
+    "@types/nodemailer": "^8.0.1",
+    "@types/pg": "^8.20.4",
+    "@types/supertest": "^6.0.3",
+    "pg-mem": "^3.0.14",
+    "supertest": "^7.2.2"
+  }
+}

@@ -1,0 +1,377 @@
+.dashboard-shell {
+  display: grid;
+  min-height: 100svh;
+  grid-template-columns: 250px 1fr;
+  background: #f5f8fc;
+}
+
+.dashboard-sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100svh;
+  flex-direction: column;
+  padding: 28px 20px 20px;
+  border-right: 1px solid #e1e7f0;
+  background: white;
+}
+
+.dashboard-sidebar nav {
+  display: grid;
+  gap: 5px;
+  margin-top: 46px;
+}
+
+.dashboard-sidebar nav a,
+.logout-button {
+  display: flex;
+  min-height: 43px;
+  align-items: center;
+  gap: 11px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: transparent;
+  color: #5d6879;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.dashboard-sidebar nav a:hover,
+.logout-button:hover {
+  background: #edf5ff;
+  color: var(--blue);
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+}
+
+.workspace-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.workspace-chip > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--blue);
+  color: white;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.workspace-chip strong,
+.workspace-chip small {
+  display: block;
+  overflow: hidden;
+  max-width: 140px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-chip strong {
+  font-size: 11px;
+}
+
+.workspace-chip small {
+  margin-top: 3px;
+  color: #8a94a4;
+  font-size: 9px;
+}
+
+.logout-button {
+  width: 100%;
+  cursor: pointer;
+}
+
+.logout-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.logout-error {
+  margin: 8px 0 0;
+  color: #b42318;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.dashboard-main {
+  min-width: 0;
+}
+
+.dashboard-page {
+  width: min(1120px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 62px 0 80px;
+}
+
+.narrow-page {
+  width: min(860px, calc(100% - 64px));
+}
+
+.page-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 30px;
+  margin-bottom: 42px;
+}
+
+.page-header > div:first-child > span,
+.getting-started > div > span,
+.plan-kicker {
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.page-header h1 {
+  margin: 10px 0 0;
+  font-size: clamp(38px, 5vw, 58px);
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.page-header p {
+  max-width: 650px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.pilot-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #cae3d7;
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: #f0fbf6;
+  color: #167148;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pilot-badge i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #24ae70;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.stat-card,
+.getting-started,
+.evidence-banner,
+.plan-card,
+.empty-state {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: white;
+}
+
+.stat-card {
+  padding: 24px;
+}
+
+.stat-card > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #697487;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stat-card svg {
+  color: var(--blue);
+}
+
+.stat-card > strong {
+  display: block;
+  margin: 26px 0 8px;
+  font-size: 36px;
+  letter-spacing: -0.05em;
+}
+
+.stat-card small {
+  color: #98a1af;
+  font-size: 10px;
+}
+
+.getting-started {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 70px;
+  margin-top: 16px;
+  padding: 34px;
+}
+
+.getting-started h2 {
+  margin: 12px 0 0;
+  font-size: 28px;
+  letter-spacing: -0.04em;
+}
+
+.setup-list {
+  border-top: 1px solid var(--line);
+}
+
+.setup-item {
+  display: flex;
+  min-height: 51px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  color: #5f6b7d;
+  font-size: 12px;
+}
+
+.setup-item i {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border: 1px solid #cdd6e3;
+  border-radius: 50%;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.setup-item.done {
+  color: #1c704a;
+}
+
+.setup-item.done i {
+  border-color: #2eb479;
+  background: #2eb479;
+  color: white;
+}
+
+.evidence-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  margin-top: 16px;
+  padding: 24px;
+  background: #f0f7ff;
+}
+
+.evidence-banner svg {
+  color: var(--blue);
+}
+
+.evidence-banner strong {
+  font-size: 13px;
+}
+
+.evidence-banner p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.plan-card {
+  padding: 40px;
+  box-shadow: var(--shadow);
+}
+
+.plan-card h2 {
+  margin: 12px 0;
+  font-size: 36px;
+  letter-spacing: -0.05em;
+}
+
+.plan-card > div > p,
+.empty-state p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.plan-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 30px 0;
+}
+
+.plan-features span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #475366;
+  font-size: 12px;
+}
+
+.plan-features svg {
+  color: var(--blue);
+}
+
+.empty-state {
+  display: grid;
+  min-height: 390px;
+  place-items: center;
+  align-content: center;
+  padding: 50px;
+  text-align: center;
+}
+
+.empty-state > svg {
+  color: var(--blue);
+}
+
+.empty-state h2 {
+  margin: 18px 0 0;
+  font-size: 25px;
+  letter-spacing: -0.04em;
+}
+
+.empty-state p {
+  max-width: 520px;
+  margin: 10px auto 24px;
+}
+
+.empty-state button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 900px) {
+  .dashboard-shell { grid-template-columns: 1fr; }
+  .dashboard-sidebar { position: static; height: auto; }
+  .dashboard-sidebar nav { grid-template-columns: repeat(4, 1fr); margin-top: 24px; }
+  .sidebar-bottom { display: none; }
+  .dashboard-cards { grid-template-columns: 1fr; }
+  .getting-started { grid-template-columns: 1fr; gap: 30px; }
+}
+
+@media (max-width: 620px) {
+  .dashboard-sidebar { padding: 18px 14px; }
+  .dashboard-sidebar nav { display: flex; overflow-x: auto; }
+  .dashboard-sidebar nav a { flex: 0 0 auto; }
+  .dashboard-page, .narrow-page { width: calc(100% - 28px); padding-top: 40px; }
+  .page-header { align-items: flex-start; flex-direction: column; }
+  .plan-features { grid-template-columns: 1fr; }
+  .plan-card { padding: 28px 22px; }
+}

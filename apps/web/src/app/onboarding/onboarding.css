@@ -1,0 +1,132 @@
+.onboarding-page {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  grid-template-columns: minmax(560px, 1.2fr) minmax(360px, 0.8fr);
+  background: #f7faff;
+}
+
+.onboarding-card {
+  width: min(100% - 48px, 720px);
+  margin: 60px auto;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 44px;
+  background: white;
+  box-shadow: var(--shadow);
+}
+
+.onboarding-card h1 {
+  margin: 12px 0;
+  font-size: clamp(38px, 5vw, 58px);
+  letter-spacing: -0.06em;
+  line-height: 0.98;
+}
+
+.onboarding-card > p {
+  max-width: 610px;
+  margin: 0 0 30px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.onboarding-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 38px;
+  color: #9aa4b4;
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.onboarding-progress strong {
+  color: var(--blue);
+}
+
+.onboarding-progress i {
+  width: 34px;
+  height: 1px;
+  background: #d6dfeb;
+}
+
+.onboarding-form {
+  display: grid;
+  gap: 18px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.onboarding-note {
+  margin: -3px 0 0;
+  color: #7b8594;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.onboarding-aside {
+  display: flex;
+  width: 100%;
+  min-height: 100svh;
+  justify-content: center;
+  flex-direction: column;
+  padding: 64px;
+  background: var(--ink);
+  color: white;
+}
+
+.onboarding-aside > span {
+  color: #5bb5ff;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.onboarding-aside h2 {
+  margin: 16px 0 36px;
+  font-size: 48px;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.onboarding-aside ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  counter-reset: onboarding;
+  list-style: none;
+}
+
+.onboarding-aside li {
+  padding: 18px 0;
+  border-top: 1px solid #2a3444;
+  color: #b5c0ce;
+  counter-increment: onboarding;
+}
+
+.onboarding-aside li::before {
+  margin-right: 14px;
+  color: #5bb5ff;
+  content: "0" counter(onboarding);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+@media (max-width: 980px) {
+  .onboarding-page { grid-template-columns: 1fr; }
+  .onboarding-aside { min-height: auto; padding: 54px 28px; }
+  .onboarding-aside h2 { max-width: 620px; font-size: 40px; }
+}
+
+@media (max-width: 620px) {
+  .onboarding-card { width: calc(100% - 28px); padding: 28px 20px; }
+  .form-grid { grid-template-columns: 1fr; }
+}

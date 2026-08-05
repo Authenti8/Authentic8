@@ -1,0 +1,30 @@
+name: Guardian
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardian-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guardian:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_ORIGIN: https://app.ci.authenti8.example
+      API_ORIGIN: https://api.ci.authenti8.example
+      DATABASE_URL: postgresql://authenti8_backend:ci@database.invalid/authenti8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+      - run: npm ci
+      - run: npm run guardian

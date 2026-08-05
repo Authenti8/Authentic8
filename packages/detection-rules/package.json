@@ -1,0 +1,14 @@
+{
+  "name": "@authenti8/detection-rules",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "scripts": {
+    "prebuild": "npm run build -w @authenti8/event-schemas",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": { "@authenti8/event-schemas": "0.1.0" }
+}

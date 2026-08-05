@@ -20,6 +20,7 @@ require_dependencies() {
 
 run_quality_guardian() {
   log "Quality guardian: lint, size limits, and type safety"
+  node scripts/check-source-sizes.mjs
   npm run lint
   npm run typecheck
 }
@@ -27,7 +28,7 @@ run_quality_guardian() {
 run_functionality_guardian() {
   log "Functionality guardian: tests and production build"
   npm run test --if-present
-  npm run build -- --webpack
+  npm run build
 }
 
 show_usage() {

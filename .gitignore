@@ -1,5 +1,5 @@
 # Dependencies
-/node_modules/
+node_modules/
 /.pnp/
 .pnp.*
 .yarn/*
@@ -12,19 +12,25 @@
 /coverage/
 
 # Next.js build output
-/.next/
-/out/
+.next/
+out/
 
 # Production builds
-/build/
+build/
+dist/
+.test-dist/
 
 # Environment variables and local secrets
 .env
 .env.*
 !.env.example
+!.env.migration.example
 
 # Deployment
 .vercel/
+
+# Local database volumes
+.postgres-data/
 
 # TypeScript
 *.tsbuildinfo
