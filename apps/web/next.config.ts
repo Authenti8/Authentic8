@@ -10,11 +10,26 @@ loadEnvConfig(
 );
 
 deploymentUrl("APP_ORIGIN", "http://localhost:3000");
-const apiOrigin = deploymentUrl("API_ORIGIN", "http://localhost:4000");
+const isProduction = process.env.NODE_ENV === "production";
+const developmentApiOrigin = isProduction
+  ? undefined
+  : deploymentUrl("API_ORIGIN", "http://localhost:4000");
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: resolve(process.cwd(), "../.."),
+  transpilePackages: [
+    "@authenti8/api",
+    "@authenti8/contracts",
+    "@authenti8/event-schemas",
+  ],
   async rewrites() {
-    return [{ source: "/api/:path*", destination: `${apiOrigin}/:path*` }];
+    if (developmentApiOrigin) {
+      return [
+        { source: "/api/:path*", destination: `${developmentApiOrigin}/:path*` },
+        { source: "/v1/:path*", destination: `${developmentApiOrigin}/v1/:path*` },
+      ];
+    }
+    return [{ source: "/v1/:path*", destination: "/api/v1/:path*" }];
   },
   async headers() {
     return [

@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "npm run build -w @authenti8/contracts && npm run build -w @authenti8/event-schemas",
+    "prebuild": "npm run build -w @authenti8/api",
     "build": "next build --webpack",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit --pretty false"
   },
   "dependencies": {
+    "@authenti8/api": "0.1.0",
     "@authenti8/contracts": "0.1.0",
     "@authenti8/event-schemas": "0.1.0",
     "@next/env": "16.3.0",

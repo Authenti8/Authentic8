@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./serverless": {
+      "types": "./dist/serverless.d.ts",
+      "default": "./dist/serverless.js"
+    }
+  },
   "scripts": {
     "dev": "nest start --watch",
     "prebuild": "npm run build -w @authenti8/contracts && npm run build -w @authenti8/event-schemas",

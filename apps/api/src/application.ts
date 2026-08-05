@@ -3,15 +3,24 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import type { NextFunction, Request, Response } from "express";
 import type { AppConfig } from "./config.js";
 
-export function configureApplication(app: NestExpressApplication, config: AppConfig) {
+type ApplicationOptions = {
+  globalPrefix?: string;
+  shutdownHooks?: boolean;
+};
+
+export function configureApplication(
+  app: NestExpressApplication,
+  config: AppConfig,
+  options: ApplicationOptions = {},
+) {
   app.set("trust proxy", config.trustedProxies.length ? config.trustedProxies : false);
-  app.setGlobalPrefix("v1");
+  app.setGlobalPrefix(options.globalPrefix ?? "v1");
   app.enableCors({ origin: config.appOrigin, credentials: true });
   app.use(sameOriginGuard(config.appOrigin));
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
-  app.enableShutdownHooks();
+  if (options.shutdownHooks !== false) app.enableShutdownHooks();
 }
 
 function sameOriginGuard(appOrigin: string) {

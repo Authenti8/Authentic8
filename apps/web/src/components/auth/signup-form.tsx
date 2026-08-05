@@ -17,6 +17,8 @@ export function SignupForm() {
   if (mutation.data) return <SignupSuccess response={mutation.data} />;
   return (
     <form className="auth-form" onSubmit={submit}>
+      {/* OAuth must perform a full document navigation to follow the provider redirect. */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a className="google-button" href="/api/v1/auth/google"><span className="google-mark">G</span> Continue with Google</a>
       <div className="form-divider"><span>or use work email</span></div>
       <Field autoComplete="name" label="Full name" name="fullName" placeholder="Rahul Panchal" required />

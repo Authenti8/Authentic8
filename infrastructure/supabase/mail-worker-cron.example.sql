@@ -34,8 +34,8 @@ BEGIN
     PERFORM VAULT.UPDATE_SECRET( SECRET_ID, 'YOUR-ROTATED-CRON-SECRET', 'authenti8_mail_worker_secret' );
   END IF;
 END;
-$VAULT_SETUP$;
 
+$VAULT_SETUP$;
 CREATE OR REPLACE FUNCTION PUBLIC.AUTHENTI8_INVOKE_MAIL_WORKER() RETURNS BIGINT LANGUAGE SQL SECURITY DEFINER SET SEARCH_PATH = PUBLIC, VAULT, NET AS $MAIL_WORKER$
 SELECT
   NET.HTTP_POST( URL := (
@@ -45,7 +45,7 @@ SELECT
       VAULT.DECRYPTED_SECRETS
     WHERE
       NAME = 'authenti8_api_origin'
-  ) || '/v1/internal/mail/drain',
+  ) || '/api/v1/internal/mail/drain',
   HEADERS := JSONB_BUILD_OBJECT( 'Content-Type',
   'application/json',
   'Authorization',
@@ -65,7 +65,7 @@ SELECT
   CRON.SCHEDULE( 'authenti8-mail-worker',
   '10 seconds',
   'SELECT public.authenti8_invoke_mail_worker();' );
-
+ 
 -- pg_cron does not prune execution history automatically. Keep enough history
 -- for operational debugging without allowing this high-frequency job to grow
 -- cron.job_run_details indefinitely.

@@ -43,8 +43,8 @@ Environment values needed for the starter:
 
 | Variable | Needed now | Purpose |
 | --- | --- | --- |
-| `APP_ORIGIN` | Yes | Public web origin; must be explicit HTTPS in production |
-| `API_ORIGIN` | Yes | API destination used by the Next.js rewrite |
+| `APP_ORIGIN` | Yes | Public origin for the single web + API deployment; must be explicit HTTPS in production |
+| `API_ORIGIN` | Local only | Standalone Nest API used by the local Next.js development rewrite; do not set it in Vercel |
 | `SUPABASE_URL` | Yes | Supabase project URL used by the server-side Data API client |
 | `SUPABASE_SECRET_KEY` | Yes* | Preferred server-only secret key; use this or the legacy service-role key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes* | Legacy server-only fallback; do not configure both unless rotating keys |
@@ -76,6 +76,29 @@ the 10-second Supabase Cron job in
 `infrastructure/supabase/mail-worker-cron.example.sql`. This schedule is
 required for email delivery and retries on serverless deployments. The same
 setup retains seven days of cron execution history for operational debugging.
+
+## Vercel deployment
+
+Authenti8 deploys as one Next.js project. The landing page and dashboard are
+served from `/`, and the existing NestJS application is mounted inside the same
+deployment at `/api/v1`. The legacy `/v1` path remains an alias so existing
+health checks keep working while integrations move to the canonical path.
+
+For the existing `authentic8-api` Vercel project:
+
+1. Set **Root Directory** to `apps/web` and **Framework Preset** to Next.js.
+2. Enable **Include source files outside of the Root Directory in the Build Step**
+   so the workspace API and shared packages are available.
+3. Keep `APP_ORIGIN=https://authentic8-api.vercel.app`.
+4. Remove `API_ORIGIN`; it is intentionally not used in production.
+5. Set `GOOGLE_CALLBACK_URL=https://authentic8-api.vercel.app/api/v1/auth/google/callback`.
+6. Keep the same callback URI in the Google Cloud OAuth client.
+7. Redeploy the current commit without creating another Vercel project.
+
+All existing server-only Supabase, Google, SMTP, encryption, and cron variables
+stay on this same Vercel project. After deployment, `/` serves the website,
+`/api/v1/health` serves API health, and Supabase Cron calls
+`/api/v1/internal/mail/drain`.
 
 Install the Git hooks:
 
