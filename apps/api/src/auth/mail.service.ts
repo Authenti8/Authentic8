@@ -17,8 +17,8 @@ export type OutboxPayload = {
 };
 type OutboxRow = OutboxPayload & { id: string; attempts: number };
 const smtpTimeouts = {
-  connectionTimeout: 30_000, greetingTimeout: 30_000,
-  socketTimeout: 120_000, dnsTimeout: 30_000,
+  connectionTimeout: 5_000, greetingTimeout: 5_000,
+  socketTimeout: 25_000, dnsTimeout: 5_000,
 } as const;
 
 @Injectable()
@@ -31,7 +31,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
   constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService) {}
 
   onApplicationBootstrap() {
-    if (!this.config.isProduction) return;
+    if (!this.config.isProduction || this.isServerless) return;
     this.timer = setInterval(() => this.scheduleDrain(), 2_000);
     this.timer.unref();
     this.scheduleDrain();
@@ -58,24 +58,31 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
   async dispatchLink(to: string, kind: MailKind, token: string) {
     if (!this.config.isProduction) return this.sendLink(to, kind, token);
     await this.supabase.rpc("authenti8_enqueue_email", this.prepareOutbox(to, kind, token));
-    this.scheduleDrain();
     return undefined;
+  }
+
+  async drainPending(limit = 10) {
+    return this.drainOutbox(limit);
   }
 
   private scheduleDrain() {
     if (this.drainInFlight) return;
     this.drainInFlight = this.drainOutbox()
+      .then(() => undefined)
       .catch((error: unknown) => this.logFailure("outbox", error))
       .finally(() => { this.drainInFlight = undefined; });
   }
 
-  private async drainOutbox() {
-    for (let delivered = 0; delivered < 10; delivered += 1) {
+  private async drainOutbox(limit = 10) {
+    let processed = 0;
+    for (let delivered = 0; delivered < limit; delivered += 1) {
       const message = await this.supabase.rpc<OutboxRow | null>("authenti8_claim_email");
       if (!message) break;
       await this.deliverClaimedMessage(message);
+      processed += 1;
     }
     await this.cleanupTerminalMessages();
+    return processed;
   }
 
   private async deliverClaimedMessage(message: OutboxRow) {
@@ -147,6 +154,10 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
 
   private encryptionKey() {
     return Buffer.from(this.config.mailEncryptionKey, "base64");
+  }
+
+  private get isServerless() {
+    return process.env.VERCEL === "1";
   }
 
   private logFailure(kind: string, error: unknown) {

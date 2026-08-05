@@ -18,6 +18,7 @@ export function loadConfig() {
   const supabaseSecretKey = supabaseServerKey();
   const appOrigin = applicationOrigin(nodeEnv);
   const google = googleConfig(nodeEnv);
+  const cronSecret = mailWorkerSecret(nodeEnv);
   const smtp = {
     host: process.env.SMTP_HOST?.trim() ?? "",
     port: Number(process.env.SMTP_PORT ?? 587),
@@ -41,10 +42,19 @@ export function loadConfig() {
     appOrigin,
     supabaseUrl,
     supabaseSecretKey,
+    cronSecret,
     ...google,
     smtp,
     mailEncryptionKey,
   };
+}
+
+function mailWorkerSecret(nodeEnv: string) {
+  const value = process.env.CRON_SECRET?.trim() ?? "";
+  if (nodeEnv === "production" && value.length < 16) {
+    throw new Error("CRON_SECRET must contain at least 16 characters in production");
+  }
+  return value || "development-cron-secret";
 }
 
 function encryptionKey(nodeEnv: string) {

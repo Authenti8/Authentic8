@@ -16,6 +16,13 @@ test("production requires an email outbox encryption key", () => {
   });
 });
 
+test("production requires a strong mail worker secret", () => {
+  withProductionEnvironment(() => {
+    delete process.env.CRON_SECRET;
+    assert.throws(() => loadConfig(), /CRON_SECRET/);
+  });
+});
+
 test("production requires a Supabase secret key", () => {
   withProductionEnvironment(() => {
     delete process.env.SUPABASE_SECRET_KEY;
@@ -83,6 +90,7 @@ function withProductionEnvironment(run: () => void) {
     "SUPABASE_SERVICE_ROLE_KEY", "APP_ORIGIN",
     "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CALLBACK_URL", "AUTH_MAIL_ENCRYPTION_KEY",
+    "CRON_SECRET",
   ];
   const previous = new Map(names.map((name) => [name, process.env[name]]));
   process.env.NODE_ENV = "production";
@@ -91,6 +99,7 @@ function withProductionEnvironment(run: () => void) {
   process.env.SUPABASE_SECRET_KEY = "test-secret-key";
   process.env.APP_ORIGIN = "https://app.authenti8.example";
   process.env.AUTH_MAIL_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+  process.env.CRON_SECRET = "test-mail-worker-secret";
   delete process.env.GOOGLE_CLIENT_ID;
   delete process.env.GOOGLE_CLIENT_SECRET;
   delete process.env.GOOGLE_CALLBACK_URL;

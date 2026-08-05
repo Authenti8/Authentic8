@@ -54,6 +54,7 @@ Environment values needed for the starter:
 | `TRUSTED_PROXIES` | Yes | Known proxy IPs/CIDRs used to resolve the real client IP; keep API ingress private to them |
 | `SMTP_*` | Production only | Sends verification and password-reset emails |
 | `AUTH_MAIL_ENCRYPTION_KEY` | Production only | Base64-encoded 32-byte key that encrypts pending auth-email tokens in the durable outbox |
+| `CRON_SECRET` | Production only | Protects the mail-worker endpoint; use the same value in Vercel and Supabase Vault |
 Apply migrations using **Supabase Dashboard → SQL Editor**:
 
 - For an empty project, apply `001` through `008` once, in numeric order.
@@ -67,6 +68,14 @@ Migration `007` also disables the obsolete `authenti8_backend` login used by
 earlier installations. The application then uses HTTPS through Supabase's Data
 API—there is no database URL, connection pooler, or migration credential in the
 running application.
+
+Production auth email is delivered by a protected outbox worker rather than in
+the signup or password-reset request. Generate `CRON_SECRET` with
+`openssl rand -base64 32`, add it to the API's Vercel environment, then configure
+the 10-second Supabase Cron job in
+`infrastructure/supabase/mail-worker-cron.example.sql`. This schedule is
+required for email delivery and retries on serverless deployments. The same
+setup retains seven days of cron execution history for operational debugging.
 
 Install the Git hooks:
 
