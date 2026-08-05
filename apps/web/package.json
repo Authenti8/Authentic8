@@ -7,6 +7,7 @@
     "prebuild": "npm run build -w @authenti8/api",
     "build": "next build --webpack",
     "start": "next start",
+    "pretypecheck": "npm run build -w @authenti8/api",
     "typecheck": "next typegen && tsc --noEmit --pretty false"
   },
   "dependencies": {
