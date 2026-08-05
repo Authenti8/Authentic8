@@ -1,0 +1,48 @@
+# Dependencies
+/node_modules/
+/.pnp/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Tests
+/coverage/
+
+# Next.js build output
+/.next/
+/out/
+
+# Production builds
+/build/
+
+# Environment variables and local secrets
+.env
+.env.*
+!.env.example
+
+# Deployment
+.vercel/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Local editor and operating-system files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local certificates
+*.pem
