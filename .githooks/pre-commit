@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+readonly PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+
+cd "$PROJECT_ROOT"
+
+printf '[pre-commit] Running quality guardian...\n'
+./guardian.sh quality
+
+printf '\n[pre-commit] Running functionality guardian...\n'
+./guardian.sh functionality
+
+printf '\n[pre-commit] Commit approved.\n'

@@ -16,6 +16,27 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Guardian checks
+
+Install the repository's pre-commit hook after cloning:
+
+```bash
+npm run hooks:install
+```
+
+Every commit runs both guardians:
+
+- The quality guardian runs ESLint, enforces a maximum of 500 lines per code
+  file and 50 lines per function, and checks TypeScript types.
+- The functionality guardian runs the test script when one is configured and
+  verifies that the application completes a production build.
+
+Run both checks manually with:
+
+```bash
+npm run guardian
+```
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

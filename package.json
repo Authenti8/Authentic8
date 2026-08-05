@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint --max-warnings=0",
+    "typecheck": "tsc --noEmit --pretty false",
+    "guardian": "./guardian.sh",
+    "guardian:quality": "./guardian.sh quality",
+    "guardian:functionality": "./guardian.sh functionality",
+    "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "next": "16.3.0",
