@@ -3,7 +3,8 @@
 import type { OnboardingResponse } from "@authenti8/contracts";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { Field, FormMessage, SelectField, SubmitButton } from "../auth/form-controls";
+import { ArrowRight, LockKeyhole } from "lucide-react";
+import { Field, FormMessage, SelectField } from "../auth/form-controls";
 import { useApiMutation } from "../auth/use-api-mutation";
 
 export function OrganizationForm() {
@@ -17,11 +18,16 @@ export function OrganizationForm() {
   }
   return (
     <form className="onboarding-form" onSubmit={submit}>
+      <FormSection label="Company details" number="01" />
       <OrganizationIdentity />
+      <FormSection label="Your team" number="02" />
       <OrganizationProfile />
       <FormMessage error={mutation.error} message="" />
-      <SubmitButton pending={mutation.pending} label="Create organization workspace" />
-      <p className="onboarding-note">You will become the workspace owner. A strict evidence policy is enabled by default.</p>
+      <button className="onboarding-submit" disabled={mutation.pending} type="submit">
+        <span>{mutation.pending ? "Creating your workspace…" : "Create workspace"}</span>
+        {!mutation.pending && <ArrowRight aria-hidden size={17} />}
+      </button>
+      <p className="onboarding-note"><LockKeyhole aria-hidden size={13} /> You will be the workspace owner. Evidence controls are enabled by default.</p>
     </form>
   );
 }
@@ -37,29 +43,16 @@ function OrganizationIdentity() {
 
 function OrganizationProfile() {
   return (
-    <>
-      <div className="form-grid">
-        <SelectField defaultValue="" label="Your role" name="jobRole" required><option disabled value="">Select role</option>{roles.map((role) => <option key={role}>{role}</option>)}</SelectField>
-        <SelectField defaultValue="" label="Company size" name="companySize" required><option disabled value="">Select size</option>{sizes.map((size) => <option key={size}>{size}</option>)}</SelectField>
-      </div>
-      <div className="form-grid">
-        <Field label="Monthly interviews" min={0} name="expectedMonthlyInterviews" placeholder="20" required type="number" />
-        <SelectField defaultValue="Asia/Kolkata" label="Default timezone" name="timezone" required>{timezones.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</SelectField>
-      </div>
-    </>
+    <div className="form-grid">
+      <SelectField defaultValue="" label="Your role" name="jobRole" required><option disabled value="">Select your role</option>{roles.map((role) => <option key={role}>{role}</option>)}</SelectField>
+      <SelectField defaultValue="" label="Company size" name="companySize" required><option disabled value="">Select company size</option>{sizes.map((size) => <option key={size}>{size}</option>)}</SelectField>
+    </div>
   );
+}
+
+function FormSection({ label, number }: { label: string; number: string }) {
+  return <div className="form-section-label"><span>{number}</span><strong>{label}</strong><i /></div>;
 }
 
 const roles = ["Founder", "Hiring manager", "Recruiter", "People leader", "Other"];
 const sizes = ["1-10", "11-50", "51-200", "201-1000", "1000+"];
-const timezones = [
-  ["Asia/Kolkata", "India · Asia/Kolkata"],
-  ["America/Los_Angeles", "Pacific Time"],
-  ["America/Denver", "Mountain Time"],
-  ["America/Chicago", "Central Time"],
-  ["America/New_York", "Eastern Time"],
-  ["Europe/London", "London"],
-  ["Europe/Berlin", "Central Europe"],
-  ["Asia/Singapore", "Singapore"],
-  ["Australia/Sydney", "Sydney"],
-] as const;

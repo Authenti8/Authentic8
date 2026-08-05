@@ -84,10 +84,25 @@ test("configured Google login requires an explicit production callback", () => {
   });
 });
 
+test("configured Google login requires a public Supabase key", () => {
+  withProductionEnvironment(() => {
+    process.env.GOOGLE_CLIENT_ID = "client";
+    process.env.GOOGLE_CLIENT_SECRET = "secret";
+    process.env.GOOGLE_CALLBACK_URL = "https://app.authenti8.example/api/v1/auth/google/callback";
+    delete process.env.SUPABASE_PUBLISHABLE_KEY;
+    delete process.env.SUPABASE_ANON_KEY;
+    assert.throws(
+      () => loadConfig(),
+      /SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY/,
+    );
+  });
+});
+
 function withProductionEnvironment(run: () => void) {
   const names = [
     "NODE_ENV", "SMTP_HOST", "SUPABASE_URL", "SUPABASE_SECRET_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY", "APP_ORIGIN",
+    "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_ANON_KEY", "APP_ORIGIN",
     "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CALLBACK_URL", "AUTH_MAIL_ENCRYPTION_KEY",
     "CRON_SECRET",

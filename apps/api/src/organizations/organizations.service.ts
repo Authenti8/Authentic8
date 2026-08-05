@@ -12,21 +12,22 @@ export class OrganizationsService {
 
   async create(userId: string, input: CreateOrganizationDto): Promise<OnboardingResponse> {
     const domain = normalizeDomain(input.domain);
+    const timezone = input.timezone ?? "UTC";
     if (!domain) throw new BadRequestException("Enter a valid organization domain.");
-    if (!isValidTimezone(input.timezone)) throw new BadRequestException("Select a valid timezone.");
+    if (!isValidTimezone(timezone)) throw new BadRequestException("Select a valid timezone.");
     const result = await this.supabase.rpc<{ organization: OrganizationResult; reason?: string }>(
       "authenti8_create_organization",
       {
         userId, name: input.name.trim(), domain, jobRole: input.jobRole,
         companySize: input.companySize,
-        expectedMonthlyInterviews: input.expectedMonthlyInterviews,
-        timezone: input.timezone,
+        expectedMonthlyInterviews: input.expectedMonthlyInterviews ?? 0,
+        timezone,
       },
     );
     if (result.reason === "INELIGIBLE") throw new BadRequestException("Verify your email first.");
     if (!result.organization) {
       throw new ConflictException("That organization or user already has an Authenti8 workspace.");
     }
-    return { organization: result.organization, next: "/dashboard/subscription" };
+    return { organization: result.organization, next: "/dashboard" };
   }
 }

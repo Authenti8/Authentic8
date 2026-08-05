@@ -36,8 +36,9 @@ cp .env.example .env
 Set `SUPABASE_URL` and one server key in `.env`. Prefer the modern
 `SUPABASE_SECRET_KEY`; `SUPABASE_SERVICE_ROLE_KEY` supports Supabase's legacy
 service-role JWT. Both are privileged server-only values and must never use a
-`NEXT_PUBLIC_` prefix or be sent to the browser. A publishable/anon key is not
-needed by the Phase 1–5 application.
+`NEXT_PUBLIC_` prefix or be sent to the browser. Google login also requires a
+public `SUPABASE_PUBLISHABLE_KEY` or legacy `SUPABASE_ANON_KEY`; the API uses it
+only to exchange Google's verified ID token with Supabase Auth.
 
 Environment values needed for the starter:
 
@@ -48,7 +49,8 @@ Environment values needed for the starter:
 | `SUPABASE_URL` | Yes | Supabase project URL used by the server-side Data API client |
 | `SUPABASE_SECRET_KEY` | Yes* | Preferred server-only secret key; use this or the legacy service-role key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes* | Legacy server-only fallback; do not configure both unless rotating keys |
-| `SUPABASE_PUBLISHABLE_KEY` | No | Reserved for future browser-side Supabase features |
+| `SUPABASE_PUBLISHABLE_KEY` | For Google login* | Preferred public key used for the Supabase Auth identity exchange |
+| `SUPABASE_ANON_KEY` | For Google login* | Legacy public-key fallback; configure one public key, not both |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | For Google login | Google OAuth web-application credentials |
 | `GOOGLE_CALLBACK_URL` | For Google login | Must exactly match the authorized redirect URI in Google Cloud |
 | `TRUSTED_PROXIES` | Yes | Known proxy IPs/CIDRs used to resolve the real client IP; keep API ingress private to them |
@@ -57,13 +59,15 @@ Environment values needed for the starter:
 | `CRON_SECRET` | Production only | Protects the mail-worker endpoint; use the same value in Vercel and Supabase Vault |
 Apply migrations using **Supabase Dashboard → SQL Editor**:
 
-- For an empty project, apply `001` through `008` once, in numeric order.
+- For an empty project, apply `001` through `009` once, in numeric order.
 - For an existing Authenti8 project, first run
   `SELECT version FROM schema_migrations ORDER BY applied_at;`, then apply only
-  the missing files. A project already on `006` should apply `007` and `008`.
+  the missing files. A project already on `008` should apply `009`.
 
 Do not rerun an applied migration. Migrations `007` and `008` install the
 server-only RPC functions and grant them only to Supabase's `service_role`.
+Migration `009` links each application user to one Supabase Auth user while
+preserving the existing application user and organization membership.
 Migration `007` also disables the obsolete `authenti8_backend` login used by
 earlier installations. The application then uses HTTPS through Supabase's Data
 API—there is no database URL, connection pooler, or migration credential in the
@@ -128,6 +132,14 @@ GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/v1/auth/google/callback
 ```
+
+In **Supabase Dashboard → Authentication → Sign In / Providers → Google**, enable
+Google and configure the same Google client ID and secret. Keep Google Cloud's
+authorized redirect URI pointed at Authenti8's callback above (or its production
+equivalent); the Authenti8 callback exchanges Google's ID token with Supabase
+Auth and then maps it to the existing application account. After migration `009`,
+the next successful Google login backfills existing accounts into Supabase Auth
+without creating a second workspace.
 
 Google login requests identity scopes only (`openid`, `email`, and `profile`).
 Google Calendar authorization is intentionally separate and belongs to Phase 9.

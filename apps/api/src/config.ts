@@ -18,6 +18,7 @@ export function loadConfig() {
   const supabaseSecretKey = supabaseServerKey();
   const appOrigin = applicationOrigin(nodeEnv);
   const google = googleConfig(nodeEnv);
+  const supabasePublishableKey = supabaseBrowserKey(Boolean(google.googleClientId));
   const cronSecret = mailWorkerSecret(nodeEnv);
   const smtp = {
     host: process.env.SMTP_HOST?.trim() ?? "",
@@ -42,11 +43,23 @@ export function loadConfig() {
     appOrigin,
     supabaseUrl,
     supabaseSecretKey,
+    supabasePublishableKey,
     cronSecret,
     ...google,
     smtp,
     mailEncryptionKey,
   };
+}
+
+function supabaseBrowserKey(requiredForGoogle: boolean) {
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY?.trim()
+    || process.env.SUPABASE_ANON_KEY?.trim() || "";
+  if (requiredForGoogle && !key) {
+    throw new Error(
+      "Google login requires SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY",
+    );
+  }
+  return key;
 }
 
 function mailWorkerSecret(nodeEnv: string) {

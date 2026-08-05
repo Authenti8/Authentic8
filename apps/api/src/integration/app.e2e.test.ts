@@ -17,6 +17,7 @@ process.env.GOOGLE_CLIENT_ID = "test-client";
 process.env.GOOGLE_CLIENT_SECRET = "test-secret";
 process.env.SUPABASE_URL ??= "https://integration.supabase.invalid";
 process.env.SUPABASE_SECRET_KEY ??= "test-secret-key";
+process.env.SUPABASE_PUBLISHABLE_KEY ??= "test-publishable-key";
 process.env.SMTP_HOST = "";
 process.env.SMTP_USER = "";
 process.env.SMTP_PASSWORD = "";
@@ -59,6 +60,7 @@ test("signup, verification, onboarding, session, and logout work over HTTP", asy
   const organization = await http.post("/v1/organizations")
     .set("Cookie", cookie).send(validOrganization());
   assert.equal(organization.status, 201);
+  assert.equal(organization.body.next, "/dashboard");
   const duplicate = await http.post("/v1/organizations")
     .set("Cookie", cookie).send({ ...validOrganization(), domain: "other.example.com" });
   assert.equal(duplicate.status, 409);
@@ -203,8 +205,41 @@ test("email actions are not globally locked by requests from other clients", asy
   }
 });
 
+test("Google identities link Supabase Auth to one stable application user", async () => {
+  const database = await TestSupabase.create();
+  const supabaseAuthUserId = "10000000-0000-4000-8000-000000000001";
+  try {
+    await database.query("INSERT INTO auth.users(id) VALUES ($1)", [supabaseAuthUserId]);
+    const existing = await database.rpc<{ id: string }>("authenti8_create_user", {
+      email: "mapped@example.com", fullName: "Mapped Founder",
+    });
+    const identity = {
+      subject: "google-subject", email: "mapped@example.com",
+      fullName: "Mapped Founder", supabaseAuthUserId,
+    };
+    const [first, second] = await Promise.all([
+      database.rpc<string>("authenti8_upsert_google_user", identity),
+      database.rpc<string>("authenti8_upsert_google_user", identity),
+    ]);
+    assert.equal(first, existing.id);
+    assert.equal(second, existing.id);
+    let linked = await database.query<{ supabase_auth_user_id: string | null }>(
+      "SELECT supabase_auth_user_id FROM users WHERE id = $1",
+      [existing.id],
+    );
+    assert.equal(linked.rows[0]?.supabase_auth_user_id, supabaseAuthUserId);
+    await database.query("DELETE FROM auth.users WHERE id = $1", [supabaseAuthUserId]);
+    linked = await database.query<{ supabase_auth_user_id: string | null }>(
+      "SELECT supabase_auth_user_id FROM users WHERE id = $1", [existing.id],
+    );
+    assert.equal(linked.rows[0]?.supabase_auth_user_id, null);
+  } finally {
+    await database.close();
+  }
+});
+
 test("the production migration enables RLS and restricts Data API functions", async () => {
-  const database = new PGlite({ extensions: { pgcrypto } });
+  const database = await createMigrationDatabase();
   try {
     const migrations = loadProductionMigrations();
     await database.exec(migrations);
@@ -224,7 +259,7 @@ test("the production migration enables RLS and restricts Data API functions", as
 });
 
 test("the Supabase migration disables an existing runtime login role", async () => {
-  const database = new PGlite({ extensions: { pgcrypto } });
+  const database = await createMigrationDatabase();
   try {
     const migrations = loadProductionMigrationFiles();
     await database.exec(migrations.slice(0, 2).join("\n"));
@@ -257,7 +292,7 @@ class TestSupabase {
   private constructor(private readonly database: PGlite) {}
 
   static async create() {
-    const database = new PGlite({ extensions: { pgcrypto } });
+    const database = await createMigrationDatabase();
     await database.exec(loadProductionMigrations());
     return new TestSupabase(database);
   }
@@ -311,8 +346,6 @@ function validOrganization() {
     domain: "integration.example.com",
     jobRole: "Founder",
     companySize: "1-10",
-    expectedMonthlyInterviews: 12,
-    timezone: "Asia/Kolkata",
   };
 }
 
@@ -325,6 +358,12 @@ function responseCookie(value: string[] | string | undefined, name: string) {
 
 function loadProductionMigrations() {
   return loadProductionMigrationFiles().join("\n");
+}
+
+async function createMigrationDatabase() {
+  const database = new PGlite({ extensions: { pgcrypto } });
+  await database.exec("CREATE SCHEMA auth; CREATE TABLE auth.users(id UUID PRIMARY KEY)");
+  return database;
 }
 
 function loadProductionMigrationFiles() {

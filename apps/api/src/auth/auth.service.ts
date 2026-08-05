@@ -143,11 +143,18 @@ export class AuthService {
       "authenti8_consume_oauth_state", { stateHash: hashToken(state) },
     );
     if (!oauthState) throw new BadRequestException("Google login state is invalid or expired.");
-    const accessToken = await this.exchangeGoogleCode(code, oauthState.verifier);
-    const profile = await this.fetchGoogleProfile(accessToken);
+    const tokens = await this.exchangeGoogleCode(code, oauthState.verifier);
+    const profile = await this.fetchGoogleProfile(tokens.accessToken);
     if (!profile.email_verified) throw new UnauthorizedException("Google email is not verified.");
+    const supabaseUser = await this.supabase.signInWithGoogleIdToken(
+      tokens.idToken, tokens.accessToken,
+    );
+    if (supabaseUser.email !== profile.email) {
+      throw new UnauthorizedException("Google identity could not be linked safely.");
+    }
     const userId = await this.supabase.rpc<string | null>("authenti8_upsert_google_user", {
       subject: profile.sub, email: profile.email, fullName: profile.name.trim().slice(0, 100),
+      supabaseAuthUserId: supabaseUser.id,
     });
     if (!userId) throw new UnauthorizedException("Google login could not be completed.");
     return { session: await this.createSession(userId, metadata), returnPath: oauthState.returnPath };
@@ -205,9 +212,11 @@ export class AuthService {
       }),
     });
     if (!response.ok) throw new UnauthorizedException("Google login could not be completed.");
-    const data = (await response.json()) as { access_token?: string };
-    if (!data.access_token) throw new UnauthorizedException("Google did not return an access token.");
-    return data.access_token;
+    const data = (await response.json()) as { access_token?: string; id_token?: string };
+    if (!data.access_token || !data.id_token) {
+      throw new UnauthorizedException("Google did not return the required identity tokens.");
+    }
+    return { accessToken: data.access_token, idToken: data.id_token };
   }
 
   private async fetchGoogleProfile(accessToken: string) {

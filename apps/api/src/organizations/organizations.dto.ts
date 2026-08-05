@@ -3,6 +3,7 @@ import {
   IsDefined,
   IsIn,
   IsInt,
+  IsOptional,
   IsString,
   Max,
   MaxLength,
@@ -38,13 +39,15 @@ export class CreateOrganizationDto {
   companySize!: string;
 
   @Type(() => Number)
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(1_000_000)
-  expectedMonthlyInterviews!: number;
+  expectedMonthlyInterviews?: number;
 
   @Transform(({ value }) => trimString(value))
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  timezone!: string;
+  timezone?: string;
 }
