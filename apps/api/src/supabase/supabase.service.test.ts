@@ -7,6 +7,7 @@ test("Supabase RPC authenticates modern and legacy server keys correctly", async
   const originalUrl = process.env.SUPABASE_URL;
   const originalSecret = process.env.SUPABASE_SECRET_KEY;
   const originalLegacy = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalIntegrationKey = process.env.INTEGRATION_ENCRYPTION_KEY;
   let headers: Record<string, string> = {};
   globalThis.fetch = async (_input, init) => {
     headers = init?.headers as Record<string, string>;
@@ -14,6 +15,7 @@ test("Supabase RPC authenticates modern and legacy server keys correctly", async
   };
   try {
     process.env.SUPABASE_URL = "https://project.supabase.co";
+    process.env.INTEGRATION_ENCRYPTION_KEY = Buffer.alloc(32, 3).toString("base64");
     process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     await new SupabaseService().rpc("authenti8_health");
@@ -30,6 +32,7 @@ test("Supabase RPC authenticates modern and legacy server keys correctly", async
     restoreEnvironment("SUPABASE_URL", originalUrl);
     restoreEnvironment("SUPABASE_SECRET_KEY", originalSecret);
     restoreEnvironment("SUPABASE_SERVICE_ROLE_KEY", originalLegacy);
+    restoreEnvironment("INTEGRATION_ENCRYPTION_KEY", originalIntegrationKey);
   }
 });
 
@@ -37,6 +40,7 @@ test("Google identity exchange uses only the public Supabase key", async () => {
   const originalFetch = globalThis.fetch;
   const originalUrl = process.env.SUPABASE_URL;
   const originalPublishable = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const originalIntegrationKey = process.env.INTEGRATION_ENCRYPTION_KEY;
   const requests: Array<{ url: string; init?: RequestInit }> = [];
   globalThis.fetch = async (input, init) => {
     requests.push({ url: String(input), init });
@@ -48,6 +52,7 @@ test("Google identity exchange uses only the public Supabase key", async () => {
   };
   try {
     process.env.SUPABASE_URL = "https://project.supabase.co";
+    process.env.INTEGRATION_ENCRYPTION_KEY = Buffer.alloc(32, 4).toString("base64");
     process.env.SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
     const identity = await new SupabaseService().signInWithGoogleIdToken(
       "google-id-token", "google-access-token",
@@ -71,6 +76,7 @@ test("Google identity exchange uses only the public Supabase key", async () => {
     globalThis.fetch = originalFetch;
     restoreEnvironment("SUPABASE_URL", originalUrl);
     restoreEnvironment("SUPABASE_PUBLISHABLE_KEY", originalPublishable);
+    restoreEnvironment("INTEGRATION_ENCRYPTION_KEY", originalIntegrationKey);
   }
 });
 

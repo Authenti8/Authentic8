@@ -4,6 +4,7 @@ import type { SessionToken } from "./auth.types.js";
 
 export const SESSION_COOKIE = "authenti8_session";
 export const OAUTH_STATE_COOKIE = "authenti8_oauth_state";
+export const INTEGRATION_STATE_COOKIE = "authenti8_integration_state";
 
 export function setSessionCookie(response: Response, token: SessionToken) {
   response.cookie(SESSION_COOKIE, token.rawToken, {
@@ -43,6 +44,25 @@ export function clearOauthStateCookie(response: Response) {
     sameSite: "lax",
     path: "/api/v1/auth/google/callback",
   });
+}
+
+export function setIntegrationStateCookie(response: Response, state: string) {
+  response.cookie(INTEGRATION_STATE_COOKIE, state, stateCookieOptions(10 * 60 * 1000));
+}
+
+export function clearIntegrationStateCookie(response: Response) {
+  response.clearCookie(INTEGRATION_STATE_COOKIE, stateCookieOptions());
+}
+
+function stateCookieOptions(maxAge?: number) {
+  return {
+    httpOnly: true,
+    secure: loadConfig().isProduction,
+    sameSite: "lax" as const,
+    path: "/api/v1/integrations/google/callback",
+    ...(maxAge ? { maxAge } : {}),
+    priority: "high" as const,
+  };
 }
 
 export function readCookie(header: string | undefined, name: string) {

@@ -9,7 +9,8 @@ const environmentKeys = [
   "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_ANON_KEY", "APP_ORIGIN", "SMTP_HOST",
   "AUTH_MAIL_ENCRYPTION_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
-  "GOOGLE_CALLBACK_URL", "CRON_SECRET",
+  "GOOGLE_CALLBACK_URL", "GOOGLE_CALENDAR_CALLBACK_URL",
+  "INTEGRATION_ENCRYPTION_KEY", "CRON_SECRET", "DODO_PAYMENTS_WEBHOOK_KEY",
 ] as const;
 
 test("Vercel mail delivery only runs through the protected worker", async () => {
@@ -42,10 +43,12 @@ function configureVercelEnvironment() {
   process.env.APP_ORIGIN = "https://app.authenti8.example";
   process.env.SMTP_HOST = "smtp.example.com";
   process.env.AUTH_MAIL_ENCRYPTION_KEY = Buffer.alloc(32).toString("base64");
+  process.env.INTEGRATION_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
   process.env.CRON_SECRET = "test-mail-worker-secret";
   process.env.GOOGLE_CLIENT_ID = "";
   process.env.GOOGLE_CLIENT_SECRET = "";
   process.env.GOOGLE_CALLBACK_URL = "";
+  delete process.env.DODO_PAYMENTS_WEBHOOK_KEY;
 }
 
 function snapshotEnvironment() {

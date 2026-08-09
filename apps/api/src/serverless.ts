@@ -18,7 +18,10 @@ export function getServerlessHandler() {
 
 async function createServerlessHandler() {
   const config = loadConfig();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { cors: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    cors: false,
+    rawBody: true,
+  });
   configureApplication(app, config, {
     globalPrefix: "api/v1",
     shutdownHooks: false,

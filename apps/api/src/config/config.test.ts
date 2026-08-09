@@ -98,6 +98,13 @@ test("configured Google login requires a public Supabase key", () => {
   });
 });
 
+test("configured Dodo webhooks require a strong Standard Webhooks secret", () => {
+  withProductionEnvironment(() => {
+    process.env.DODO_PAYMENTS_WEBHOOK_KEY = "whsec_c2hvcnQ=";
+    assert.throws(() => loadConfig(), /DODO_PAYMENTS_WEBHOOK_KEY/);
+  });
+});
+
 function withProductionEnvironment(run: () => void) {
   const names = [
     "NODE_ENV", "SMTP_HOST", "SUPABASE_URL", "SUPABASE_SECRET_KEY",
@@ -105,7 +112,8 @@ function withProductionEnvironment(run: () => void) {
     "SUPABASE_ANON_KEY", "APP_ORIGIN",
     "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CALLBACK_URL", "AUTH_MAIL_ENCRYPTION_KEY",
-    "CRON_SECRET",
+    "GOOGLE_CALENDAR_CALLBACK_URL", "INTEGRATION_ENCRYPTION_KEY",
+    "CRON_SECRET", "DODO_PAYMENTS_ENVIRONMENT", "DODO_PAYMENTS_WEBHOOK_KEY",
   ];
   const previous = new Map(names.map((name) => [name, process.env[name]]));
   process.env.NODE_ENV = "production";
@@ -114,10 +122,13 @@ function withProductionEnvironment(run: () => void) {
   process.env.SUPABASE_SECRET_KEY = "test-secret-key";
   process.env.APP_ORIGIN = "https://app.authenti8.example";
   process.env.AUTH_MAIL_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+  process.env.INTEGRATION_ENCRYPTION_KEY = Buffer.alloc(32, 8).toString("base64");
   process.env.CRON_SECRET = "test-mail-worker-secret";
   delete process.env.GOOGLE_CLIENT_ID;
   delete process.env.GOOGLE_CLIENT_SECRET;
   delete process.env.GOOGLE_CALLBACK_URL;
+  delete process.env.DODO_PAYMENTS_ENVIRONMENT;
+  delete process.env.DODO_PAYMENTS_WEBHOOK_KEY;
   try {
     run();
   } finally {

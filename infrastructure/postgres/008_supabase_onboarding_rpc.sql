@@ -22,9 +22,11 @@ BEGIN
   INSERT INTO interview_policies(organization_id, name, mode, is_default)
   VALUES (organization_id, 'Strict evidence policy', 'STRICT', true);
   INSERT INTO subscriptions(organization_id, plan_key, status)
-  VALUES (organization_id, 'PILOT', 'TRIALING');
-  INSERT INTO credit_transactions(organization_id, amount, kind, idempotency_key)
-  VALUES (organization_id, 0, 'OPENING_BALANCE', 'opening:' || organization_id);
+  VALUES (organization_id, 'STARTER', 'ACTIVE');
+  INSERT INTO credit_transactions(organization_id, amount, kind, reference_id, idempotency_key)
+  VALUES (organization_id, 10, 'MONTHLY_ALLOWANCE',
+    to_char(date_trunc('month', now()), 'YYYY-MM'), 'allowance:' || organization_id || ':' ||
+    to_char(date_trunc('month', now()), 'YYYY-MM'));
   INSERT INTO audit_logs(organization_id, actor_user_id, action, target_type, target_id)
   VALUES (organization_id, (input->>'userId')::UUID,
     'ORGANIZATION_CREATED', 'organization', organization_id::TEXT);

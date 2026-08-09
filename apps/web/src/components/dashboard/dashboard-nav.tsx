@@ -1,14 +1,14 @@
 "use client";
 
-import { CalendarDays, CreditCard, LayoutDashboard, Link2 } from "lucide-react";
+import { CalendarDays, CreditCard, LayoutDashboard, PlugZap } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const nav = [
   [LayoutDashboard, "Overview", "/dashboard"],
   [CalendarDays, "Meetings", "/dashboard/meetings"],
-  [CreditCard, "Pilot plan", "/dashboard/subscription"],
-  [Link2, "Connect Google", "/dashboard/connect-google"],
+  [CreditCard, "Plans & billing", "/dashboard/subscription"],
+  [PlugZap, "Integrations", "/dashboard/integrations"],
 ] as const;
 
 export function DashboardNav() {

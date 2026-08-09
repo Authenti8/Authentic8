@@ -7,7 +7,10 @@ import { loadConfig } from "./config.js";
 
 async function bootstrap() {
   const config = loadConfig();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { cors: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    cors: false,
+    rawBody: true,
+  });
   configureApplication(app, config);
   await app.listen(config.port, "0.0.0.0");
 }

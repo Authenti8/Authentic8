@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { config as loadEnvironment } from "dotenv";
+import { decodeDodoWebhookSecret } from "./billing/dodo-secret.js";
 
 loadEnvironment({ path: resolve(process.cwd(), "../../.env"), quiet: true });
 loadEnvironment({ path: resolve(process.cwd(), ".env"), quiet: true, override: false });
@@ -18,6 +19,8 @@ export function loadConfig() {
   const supabaseSecretKey = supabaseServerKey();
   const appOrigin = applicationOrigin(nodeEnv);
   const google = googleConfig(nodeEnv);
+  const googleCalendar = googleCalendarConfig(nodeEnv, appOrigin);
+  const dodo = dodoConfig(nodeEnv);
   const supabasePublishableKey = supabaseBrowserKey(Boolean(google.googleClientId));
   const cronSecret = mailWorkerSecret(nodeEnv);
   const smtp = {
@@ -46,8 +49,45 @@ export function loadConfig() {
     supabasePublishableKey,
     cronSecret,
     ...google,
+    ...googleCalendar,
+    dodo,
     smtp,
     mailEncryptionKey,
+  };
+}
+
+function googleCalendarConfig(nodeEnv: string, appOrigin: string) {
+  const fallback = `${appOrigin}/api/v1/integrations/google/callback`;
+  const value = process.env.GOOGLE_CALENDAR_CALLBACK_URL?.trim();
+  const googleCalendarCallbackUrl = nodeEnv === "production"
+    ? productionUrl("GOOGLE_CALENDAR_CALLBACK_URL", value || fallback)
+    : value || fallback;
+  const integrationEncryptionKey = process.env.INTEGRATION_ENCRYPTION_KEY?.trim()
+    || process.env.AUTH_MAIL_ENCRYPTION_KEY?.trim() || "";
+  if (integrationEncryptionKey && Buffer.from(integrationEncryptionKey, "base64").length !== 32) {
+    throw new Error("INTEGRATION_ENCRYPTION_KEY must be a base64-encoded 32-byte key");
+  }
+  return { googleCalendarCallbackUrl, integrationEncryptionKey };
+}
+
+function dodoConfig(nodeEnv: string) {
+  const mode = process.env.DODO_PAYMENTS_ENVIRONMENT?.trim() || "test_mode";
+  const webhookKey = process.env.DODO_PAYMENTS_WEBHOOK_KEY?.trim() ?? "";
+  if (!["test_mode", "live_mode"].includes(mode)) {
+    throw new Error("DODO_PAYMENTS_ENVIRONMENT must be test_mode or live_mode");
+  }
+  if (nodeEnv !== "production" && mode === "live_mode") {
+    throw new Error("Dodo live mode is not allowed outside production");
+  }
+  if (nodeEnv === "production" && webhookKey && !decodeDodoWebhookSecret(webhookKey)) {
+    throw new Error("DODO_PAYMENTS_WEBHOOK_KEY must be a valid whsec_ secret of at least 32 bytes");
+  }
+  return {
+    apiKey: process.env.DODO_PAYMENTS_API_KEY?.trim() ?? "",
+    webhookKey,
+    professionalProductId: process.env.DODO_PROFESSIONAL_PRODUCT_ID?.trim() ?? "",
+    extraInterviewProductId: process.env.DODO_EXTRA_INTERVIEW_PRODUCT_ID?.trim() ?? "",
+    baseUrl: mode === "live_mode" ? "https://live.dodopayments.com" : "https://test.dodopayments.com",
   };
 }
 

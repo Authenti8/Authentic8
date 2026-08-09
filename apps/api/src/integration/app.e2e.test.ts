@@ -18,6 +18,7 @@ process.env.GOOGLE_CLIENT_SECRET = "test-secret";
 process.env.SUPABASE_URL ??= "https://integration.supabase.invalid";
 process.env.SUPABASE_SECRET_KEY ??= "test-secret-key";
 process.env.SUPABASE_PUBLISHABLE_KEY ??= "test-publishable-key";
+process.env.INTEGRATION_ENCRYPTION_KEY = Buffer.alloc(32, 2).toString("base64");
 process.env.SMTP_HOST = "";
 process.env.SMTP_USER = "";
 process.env.SMTP_PASSWORD = "";

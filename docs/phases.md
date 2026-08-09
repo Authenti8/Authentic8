@@ -534,9 +534,21 @@ AFTER first login:
 
 # Phase 6 — Subscription and Interview Credits
 
+## Implementation Status
+
+Implemented in the application. Production activation requires migrations `010`
+through `020`, Dodo test credentials, two Dodo product IDs, the verified webhook
+endpoint `/api/v1/billing/webhooks/dodo`, and the Supabase billing-webhook worker.
+
 ## Feature
 
 Allow recruiters to purchase a subscription and interview credits.
+
+## MVP Plans
+
+- Starter: free, 10 interviews per month, then $5 per extra interview.
+- Professional: $1,000 per month, 300 interviews per month, then $5 per extra interview.
+- Enterprise: contact sales; custom limits and invoice-link operations remain manual.
 
 ## Credit Rule
 
@@ -580,6 +592,11 @@ WHEN interview is cancelled or candidate never verifies:
 
 # Phase 7 — Dashboard Shell
 
+## Implementation Status
+
+Implemented with session and tenant checks, persistent workspace health warnings,
+live credit visibility, and role-gated billing and integration operations.
+
 ## Feature
 
 Create the authenticated dashboard layout.
@@ -588,8 +605,8 @@ Create the authenticated dashboard layout.
 
 1. Overview
 2. Meetings
-3. Buy Extra Links
-4. Connect Google Meet
+3. Plans and billing
+4. Integrations
 5. Logout
 
 ## Algorithm
@@ -625,6 +642,11 @@ ON every dashboard request:
 ---
 
 # Phase 8 — Overview Tab
+
+## Implementation Status
+
+Implemented through one tenant-scoped aggregation RPC backed by the credit ledger,
+interview state, reports, and Google integration state.
 
 ## Feature
 
@@ -668,6 +690,11 @@ Use one backend aggregation endpoint rather than making the browser request ever
 
 # Phase 9 — Google OAuth and Connect Google Meet Tab
 
+## Implementation Status
+
+Implemented as a separate Calendar authorization flow with PKCE, encrypted tokens,
+refresh handling, reauthorization state, disconnect, and Google push-channel setup.
+
 ## Feature
 
 Connect the recruiter’s Google account.
@@ -698,6 +725,11 @@ Connect the recruiter’s Google account.
 ---
 
 # Phase 10 — Initial Calendar Synchronization
+
+## Implementation Status
+
+Implemented with the 91-day scan window, pagination, recurring expansion,
+cancellation handling, event-version checks, classification, and atomic upserts.
 
 ## Feature
 

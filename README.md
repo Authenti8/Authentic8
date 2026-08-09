@@ -53,21 +53,46 @@ Environment values needed for the starter:
 | `SUPABASE_ANON_KEY` | For Google login* | Legacy public-key fallback; configure one public key, not both |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | For Google login | Google OAuth web-application credentials |
 | `GOOGLE_CALLBACK_URL` | For Google login | Must exactly match the authorized redirect URI in Google Cloud |
+| `GOOGLE_CALENDAR_CALLBACK_URL` | For Calendar | Separate Calendar OAuth redirect URI |
+| `INTEGRATION_ENCRYPTION_KEY` | For Calendar | Base64-encoded 32-byte provider-token key |
+| `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY` | For billing | Dodo test API and webhook secrets |
+| `DODO_PROFESSIONAL_PRODUCT_ID` | For billing | Recurring $1,000/month product ID |
+| `DODO_EXTRA_INTERVIEW_PRODUCT_ID` | For billing | One-time $5 product ID |
 | `TRUSTED_PROXIES` | Yes | Known proxy IPs/CIDRs used to resolve the real client IP; keep API ingress private to them |
 | `SMTP_*` | Production only | Sends verification and password-reset emails |
 | `AUTH_MAIL_ENCRYPTION_KEY` | Production only | Base64-encoded 32-byte key that encrypts pending auth-email tokens in the durable outbox |
 | `CRON_SECRET` | Production only | Protects the mail-worker endpoint; use the same value in Vercel and Supabase Vault |
 Apply migrations using **Supabase Dashboard → SQL Editor**:
 
-- For an empty project, apply `001` through `009` once, in numeric order.
+- For an empty project, apply `001` through `020` once, in numeric order.
 - For an existing Authenti8 project, first run
   `SELECT version FROM schema_migrations ORDER BY applied_at;`, then apply only
-  the missing files. A project already on `008` should apply `009`.
+  the missing files. A project already on `017` should apply `018` through `020`;
+  a project already on `018` should apply `019` and `020`; a project already on
+  `019` should apply `020`.
 
 Do not rerun an applied migration. Migrations `007` and `008` install the
 server-only RPC functions and grant them only to Supabase's `service_role`.
 Migration `009` links each application user to one Supabase Auth user while
 preserving the existing application user and organization membership.
+Migrations `010` and `011` add billing, credits, dashboard aggregates,
+encrypted Calendar integration state, and interview synchronization.
+Migration `012` reapplies the Starter onboarding RPC for databases that had
+already installed the original migration `008`.
+Migration `013` installs the dashboard overview and interview-list read models.
+Migration `014` adds automatic credit reservation and reconciles outstanding
+reservations whenever a subscription or purchased-credit entitlement changes.
+Migration `015` adds the Dodo customer-portal context and prevents a second
+Professional checkout while an existing subscription can still be restored.
+Migration `016` forwards billing cancellation and checkout-recovery changes to
+existing databases and preserves intentional credit releases during calendar sync.
+Migration `017` preserves provider-subscription ownership so delayed recovery
+events cannot revive a superseded subscription. Migration `018` adds protected
+interview state and credit transitions. Migration `019` adds the durable Dodo
+webhook inbox used to acknowledge provider deliveries before processing.
+Migration `020` binds subscription lifecycle events to authorized provider
+records, prevents stale recoveries from superseding newer checkouts, and limits
+self-service extra credits to Starter and Professional workspaces.
 Migration `007` also disables the obsolete `authenti8_backend` login used by
 earlier installations. The application then uses HTTPS through Supabase's Data
 API—there is no database URL, connection pooler, or migration credential in the
@@ -78,8 +103,13 @@ the signup or password-reset request. Generate `CRON_SECRET` with
 `openssl rand -base64 32`, add it to the API's Vercel environment, then configure
 the 10-second Supabase Cron job in
 `infrastructure/supabase/mail-worker-cron.example.sql`. This schedule is
-required for email delivery and retries on serverless deployments. The same
-setup retains seven days of cron execution history for operational debugging.
+required for email delivery and retries on serverless deployments. It also
+drains durable billing webhooks every 10 seconds, drains Calendar synchronization
+jobs every minute, recovers integrations that have been stale for 30 minutes,
+and checks every five minutes for channels that are close to expiry. Cron history
+is retained for seven days. Re-run this setup file after applying migration `019`;
+replace `YOUR-VERCEL-DOMAIN` with the deployment host and keep its Vault secret
+identical to the Vercel `CRON_SECRET`.
 
 ## Vercel deployment
 
@@ -96,13 +126,16 @@ For the existing `authentic8-api` Vercel project:
 3. Keep `APP_ORIGIN=https://authentic8-api.vercel.app`.
 4. Remove `API_ORIGIN`; it is intentionally not used in production.
 5. Set `GOOGLE_CALLBACK_URL=https://authentic8-api.vercel.app/api/v1/auth/google/callback`.
-6. Keep the same callback URI in the Google Cloud OAuth client.
-7. Redeploy the current commit without creating another Vercel project.
+6. Set `GOOGLE_CALENDAR_CALLBACK_URL=https://authentic8-api.vercel.app/api/v1/integrations/google/callback`.
+7. Register both callback URIs in the same Google Cloud OAuth client.
+8. Redeploy the current commit without creating another Vercel project.
 
 All existing server-only Supabase, Google, SMTP, encryption, and cron variables
 stay on this same Vercel project. After deployment, `/` serves the website,
 `/api/v1/health` serves API health, and Supabase Cron calls
-`/api/v1/internal/mail/drain`.
+`/api/v1/internal/mail/drain`, `/api/v1/internal/integrations/sync`, and
+`/api/v1/internal/integrations/renew`. The same Supabase Cron configuration drains
+verified Dodo webhook events through `/api/v1/internal/billing/webhooks/drain`.
 
 Install the Git hooks:
 
