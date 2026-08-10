@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Brand } from "../brand";
 import { DashboardNav } from "./dashboard-nav";
 import { LogoutButton } from "./logout-button";
+import { WorkspaceWarning } from "./workspace-warning";
 
 export function DashboardShell({ session, health, integration, children }: {
   session: SessionResponse;
@@ -22,13 +23,20 @@ export function DashboardShell({ session, health, integration, children }: {
           <LogoutButton />
         </div>
       </aside>
-      <main className="dashboard-main">{warning ? <div className="workspace-warning">{warning}</div> : null}{children}</main>
+      <main className="dashboard-main">
+        {warning ? <WorkspaceWarning key={warning} message={warning}
+          dismissible={health.status !== "PAST_DUE" && health.notificationCount > 0} /> : null}
+        {children}
+      </main>
     </div>
   );
 }
 
 function workspaceWarning(health: DashboardOverview, integration: IntegrationSummary) {
   if (health.status === "PAST_DUE") return "Your Professional subscription needs attention.";
+  if (health.notificationCount > 0) {
+    return `${health.notificationCount} interview verification ${health.notificationCount === 1 ? "alert needs" : "alerts need"} attention.`;
+  }
   if (health.balance <= 0) return "No interview credits remain. Purchase credits before the next interview.";
   if (integration.status === "REAUTH_REQUIRED") return "Google Calendar authorization expired. Reconnect it from Integrations.";
   if (integration.status === "ACTIVE" && integration.lastErrorCode) {

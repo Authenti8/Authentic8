@@ -22,10 +22,19 @@ function MeetingList({ meetings }: { meetings: InterviewSummary[] }) {
     <article className="meeting-row" id={meeting.id} key={meeting.id}>
       <MeetingDate start={meeting.scheduledStart} />
       <div className="meeting-copy"><span><LocalDateTime display="date-time" value={meeting.scheduledStart} /></span><h2>{meeting.title}</h2><p><UserRound size={13} /> {meeting.candidateEmail}</p></div>
-      <ProtectionBadge status={meeting.protectionStatus ?? "PENDING"} />
+      <div className="meeting-statuses"><LifecycleBadge status={meeting.status} />
+        <ProtectionBadge status={meeting.protectionStatus ?? "PENDING"} /></div>
       <a aria-label={`Open ${meeting.title} in Google Meet`} href={meeting.meetUrl} rel="noreferrer" target="_blank"><ExternalLink size={16} /></a>
+      <details className="classification-detail"><summary>Why this was classified</summary>
+        <p>{meeting.classificationReason || "Classification details are unavailable."}</p>
+        <span>Consent: {meeting.consentStatus.replaceAll("_", " ")} · Delivery: {meeting.verificationDeliveryStatus.replaceAll("_", " ")}</span>
+      </details>
     </article>
   ))}</section>;
+}
+
+function LifecycleBadge({ status }: { status: string }) {
+  return <span className={`lifecycle-badge ${status.toLowerCase()}`}>{status.replaceAll("_", " ")}</span>;
 }
 
 function ProtectionBadge({ status }: { status: InterviewSummary["protectionStatus"] }) {

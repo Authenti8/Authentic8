@@ -9,6 +9,6 @@ import { SessionGuard } from "./session.guard.js";
 @Module({
   controllers: [AuthController, MailWorkerController],
   providers: [AuthService, MailService, RateLimiterService, SessionGuard],
-  exports: [AuthService, SessionGuard],
+  exports: [AuthService, MailService, SessionGuard],
 })
 export class AuthModule {}

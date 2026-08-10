@@ -28,6 +28,13 @@ export class WorkspaceController {
     });
   }
 
+  @Post("notifications/acknowledge")
+  acknowledgeNotifications(@Req() request: AuthenticatedRequest) {
+    return this.supabase.rpc<{ acknowledged: number }>("authenti8_acknowledge_notifications", {
+      userId: request.session!.userId,
+    });
+  }
+
 }
 
 @Controller("internal/workspace")

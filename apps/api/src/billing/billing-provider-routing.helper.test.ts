@@ -1,6 +1,24 @@
 import assert from "node:assert/strict";
 import type { PGlite } from "@electric-sql/pglite";
 
+export async function advanceToDeviceConnecting(database: PGlite, interviewId: string) {
+  for (const [expected, destination] of [
+    ["DETECTED", "PROTECTED"], ["PROTECTED", "VERIFICATION_SCHEDULED"],
+    ["VERIFICATION_SCHEDULED", "WAITING_FOR_CANDIDATE"],
+    ["WAITING_FOR_CANDIDATE", "CONSENT_PENDING"],
+    ["CONSENT_PENDING", "DEVICE_CONNECTING"],
+  ]) {
+    await database.query("SELECT authenti8_transition_interview($1, ARRAY[$2], $3, 'TEST')",
+      [interviewId, expected, destination]);
+  }
+  await database.query(`INSERT INTO verification_sessions(
+    interview_id, candidate_email, status, consent_version, consented_at,
+    eligible_start, eligible_end
+  ) SELECT id, candidate_email, 'CONSENTED', authenti8_current_consent_version(), now(),
+    scheduled_start - interval '15 minutes', scheduled_end + interval '30 minutes'
+    FROM interviews WHERE id = $1`, [interviewId]);
+}
+
 export async function assertEnterpriseCannotBuyExtras(
   database: PGlite, userId: string, organizationId: string,
 ) {

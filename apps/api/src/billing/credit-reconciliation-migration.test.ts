@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { advanceToDeviceConnecting } from "./billing-provider-routing.helper.test.js";
 
 test("refunds and plan downgrades release excess reservations", async () => {
   const database = new PGlite({ extensions: { pgcrypto } });
@@ -98,6 +99,7 @@ test("reconciliation preserves a reservation during the monitoring overrun windo
 
     await rpc(database, "authenti8_reconcile_all_credits", {});
     assert.equal(await reservationStatus(database, interview), "RESERVED");
+    await advanceToDeviceConnecting(database, interview);
     assert.deepEqual(await rpc(database, "authenti8_consume_credit", {
       interviewId: interview,
     }), { consumed: true });

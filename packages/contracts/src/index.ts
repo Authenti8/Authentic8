@@ -54,6 +54,7 @@ export type DashboardOverview = BillingSummary & {
   confirmed: number;
   failed: number;
   integrationActive: boolean;
+  notificationCount: number;
   recentReports: RecentReport[];
 };
 
@@ -83,4 +84,26 @@ export type InterviewSummary = {
   protectionStatus: "PENDING" | "RESERVED" | "CONSUMED" | "RELEASED"
     | "UNPROTECTED_NO_CREDITS" | "UNPROTECTED_SUBSCRIPTION";
   meetUrl: string;
+  classificationReason: string | null;
+  consentStatus: string;
+  verificationDeliveryStatus: "NOT_SCHEDULED" | "SCHEDULED" | "QUEUED" | "SENT" | "FAILED";
+};
+
+export type CandidateVerification = {
+  valid: true;
+  organizationName: string;
+  interviewTitle: string;
+  candidateName: string | null;
+  candidateEmail: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  expiresAt: string;
+  consentVersion: string;
+};
+
+export type CandidateConsentResponse = {
+  accepted: boolean;
+  declined?: boolean;
+  verificationSessionId?: string;
+  reason?: string;
 };

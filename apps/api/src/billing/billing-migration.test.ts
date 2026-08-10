@@ -8,7 +8,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import {
   assertEnterpriseCannotBuyExtras,
   assertNewCheckoutSupersedesRecovery,
-  assertPendingPaymentBindsSubscription,
+  assertPendingPaymentBindsSubscription, advanceToDeviceConnecting,
   createProfessionalCheckout,
 } from "./billing-provider-routing.helper.test.js";
 test("billing allowances and Dodo events are ledger-backed and idempotent", async () => {
@@ -179,6 +179,7 @@ async function assertReservationLimit(database: PGlite, userId: string, organiza
   await database.query("UPDATE interviews SET status = 'EXCLUDED'");
   const monitoredInterview = await createInterview(database, organizationId, 12);
   await rpc(database, "authenti8_reserve_credit", { interviewId: monitoredInterview });
+  await advanceToDeviceConnecting(database, monitoredInterview);
   assert.deepEqual(await rpc(database, "authenti8_consume_credit",
     { interviewId: monitoredInterview }), { consumed: true });
   const monitored = await database.query<{ monitoring_started_at: string; status: string }>(
@@ -205,12 +206,14 @@ async function assertExpiredInterviewCannotConsume(database: PGlite, organizatio
     scheduled_end = now() - interval '1 hour' WHERE id = $1`, [interviewId]);
   await database.query(`UPDATE credit_reservations SET status = 'RESERVED', released_at = NULL,
     release_reason = NULL WHERE interview_id = $1`, [interviewId]);
+  await advanceToDeviceConnecting(database, interviewId);
   assert.deepEqual(await rpc(database, "authenti8_consume_credit", { interviewId }),
     { consumed: false, reason: "INTERVIEW_OUTSIDE_WINDOW" });
   const reservation = await database.query<{ status: string }>(
     "SELECT status FROM credit_reservations WHERE interview_id = $1", [interviewId]);
   assert.equal(reservation.rows[0]?.status, "RELEASED");
 }
+
 async function assertProfessionalLifecycle(database: PGlite, userId: string, organizationId: string) {
   const base = Date.now();
   const dates = { periodStart: new Date(base).toISOString(),
@@ -483,13 +486,11 @@ async function rpc<T = unknown>(database: PGlite, name: string, input: object) {
   );
   return result.rows[0]!.value;
 }
-
 function organizationInput(userId: string) {
   return { userId, name: "Billing Co", domain: "billing.example.com",
     jobRole: "FOUNDER", companySize: "1-10", expectedMonthlyInterviews: 0,
     timezone: "UTC" };
 }
-
 function loadMigrations(lastFile?: string) {
   const directory = resolve(process.cwd(), "../../infrastructure/postgres");
   return readdirSync(directory).filter((file) => file.endsWith(".sql"))

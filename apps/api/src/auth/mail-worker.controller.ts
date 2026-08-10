@@ -14,7 +14,7 @@ export class MailWorkerController {
     if (!validBearerToken(authorization, this.config.cronSecret)) {
       throw new UnauthorizedException();
     }
-    const processed = await this.mail.drainPending(1);
+    const processed = await this.mail.drainPending(10);
     return { processed };
   }
 }

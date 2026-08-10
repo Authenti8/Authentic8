@@ -10,10 +10,11 @@ import { loadConfig } from "../config.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import { decryptMailToken, encryptMailToken } from "./mail-crypto.js";
 
-export type MailKind = "verify" | "reset";
+export type MailKind = "verify" | "reset" | "candidate_verification";
 export type OutboxPayload = {
   recipient: string; kind: MailKind; encryptedToken: string;
   initializationVector: string; authenticationTag: string;
+  interviewId?: string;
 };
 type OutboxRow = OutboxPayload & { id: string; attempts: number };
 const smtpTimeouts = {
@@ -74,20 +75,30 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private async drainOutbox(limit = 10) {
-    let processed = 0;
-    for (let delivered = 0; delivered < limit; delivered += 1) {
-      const message = await this.supabase.rpc<OutboxRow | null>("authenti8_claim_email");
-      if (!message) break;
-      await this.deliverClaimedMessage(message);
-      processed += 1;
+    const claims = await Promise.allSettled(Array.from({ length: limit }, () =>
+      this.supabase.rpc<OutboxRow | null>("authenti8_claim_email")));
+    const messages: OutboxRow[] = [];
+    for (const claim of claims) {
+      if (claim.status === "fulfilled" && claim.value) messages.push(claim.value);
+      if (claim.status === "rejected") this.logFailure("claim", claim.reason);
+    }
+    const deliveries = await Promise.allSettled(
+      messages.map((message) => this.deliverClaimedMessage(message)),
+    );
+    for (const delivery of deliveries) {
+      if (delivery.status === "rejected") this.logFailure("outbox", delivery.reason);
     }
     await this.cleanupTerminalMessages();
-    return processed;
+    return messages.length;
   }
 
   private async deliverClaimedMessage(message: OutboxRow) {
     const stopLeaseRenewal = this.startLeaseRenewal(message);
     try {
+      const deliverable = await this.supabase.rpc<boolean>(
+        "authenti8_email_claim_is_deliverable", claimInput(message),
+      );
+      if (!deliverable) return;
       const token = decryptMailToken(this.encryptionKey(), {
         ciphertext: message.encryptedToken,
         initializationVector: message.initializationVector,
@@ -106,7 +117,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
     const timer = setInterval(() => {
       void this.supabase.rpc("authenti8_renew_email", claimInput(message))
         .catch((error: unknown) => this.logFailure("lease", error));
-    }, 60_000);
+    }, 10_000);
     timer.unref();
     return () => clearInterval(timer);
   }
@@ -138,7 +149,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
         ? { user: this.config.smtp.user, pass: this.config.smtp.password }
         : undefined,
     });
-    const label = kind === "verify" ? "Verify your email" : "Reset your password";
+    const label = mailLabel(kind);
     await transport.sendMail({
       from: this.config.smtp.from, to, subject: `${label} · Authenti8`,
       text: `${label}: ${url}\n\nThis link expires soon. Ignore this email if you did not request it.`,
@@ -148,7 +159,11 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private linkUrl(kind: MailKind, token: string) {
-    const path = kind === "verify" ? "/verify-email" : "/reset-password";
+    if (kind === "candidate_verification") {
+      return `${this.config.appOrigin}/candidate/verify#token=${encodeURIComponent(token)}`;
+    }
+    const path = kind === "verify" ? "/verify-email"
+      : "/reset-password";
     return `${this.config.appOrigin}${path}?token=${encodeURIComponent(token)}`;
   }
 
@@ -164,6 +179,12 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
     const reason = error instanceof Error ? error.message : "Unknown delivery failure";
     console.error(`[mail] ${kind} delivery failed: ${reason}`);
   }
+}
+
+function mailLabel(kind: MailKind) {
+  if (kind === "verify") return "Verify your email";
+  if (kind === "reset") return "Reset your password";
+  return "Review your interview verification and consent";
 }
 
 function mailContext(kind: MailKind, recipient: string) {

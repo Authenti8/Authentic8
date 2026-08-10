@@ -775,6 +775,10 @@ SAVE synchronization cursor or token
 
 # Phase 11 — Real-Time Calendar Updates
 
+**Implementation status: Complete.** Authenticated webhook channels enqueue durable synchronization
+jobs, stale integrations recover after 30 minutes, channels renew ahead of expiry, and lifecycle-aware
+calendar updates handle creation, rescheduling, cancellation, and credit release.
+
 ## Feature
 
 Automatically process newly scheduled, changed, or cancelled meetings.
@@ -819,6 +823,10 @@ EVERY 24 hours:
 ---
 
 # Phase 12 — Automatic Interview Classification
+
+**Implementation status: Complete.** The classifier is deterministic, covers the fixed MVP keyword
+set, rejects ambiguous external attendees and resources, and stores a human-readable reason for every
+matched interview.
 
 ## Feature
 
@@ -896,6 +904,9 @@ Do not use an AI classifier first. Start with deterministic rules so decisions a
 
 # Phase 13 — Interview Lifecycle Orchestrator
 
+**Implementation status: Complete.** Database transition guards, immutable lifecycle events, leased
+side-effect jobs, recovery transitions, and idempotency keys enforce the interview state machine.
+
 ## Feature
 
 Manage every interview from discovery through final report.
@@ -947,6 +958,10 @@ FOR every status transition:
 
 # Phase 14 — Candidate Verification Delivery
 
+**Implementation status: Complete.** A protected cron endpoint schedules delivery at T-1 minute,
+revalidates subscription and credits, creates hash-only short-lived tokens, uses the durable encrypted
+mail outbox, retries failures, and surfaces terminal delivery alerts to the recruiter dashboard.
+
 ## Feature
 
 Deliver the Authenti8 Verify setup without changing the Google Meet URL.
@@ -990,6 +1005,10 @@ IF email fails:
 ---
 
 # Phase 15 — Candidate Consent Portal
+
+**Implementation status: Complete.** The public token-bound portal explains collection scope, records
+versioned acceptance or decline, creates a verification session only after acceptance, releases the
+credit on decline, and never labels a decline as cheating.
 
 ## Feature
 

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { test } from "node:test";
 import type { SupabaseService } from "../supabase/supabase.service.js";
 import { MailWorkerController } from "./mail-worker.controller.js";
@@ -28,11 +30,21 @@ test("Vercel mail delivery only runs through the protected worker", async () => 
     assert.deepEqual(calls, []);
     await assert.rejects(worker.drain("Bearer wrong-secret"), /Unauthorized/);
     assert.deepEqual(await worker.drain("Bearer test-mail-worker-secret"), { processed: 0 });
-    assert.deepEqual(calls, ["authenti8_claim_email", "authenti8_cleanup_email"]);
+    assert.equal(calls.filter((name) => name === "authenti8_claim_email").length, 10);
+    assert.equal(calls.at(-1), "authenti8_cleanup_email");
   } finally {
     await mail.onModuleDestroy();
     restoreEnvironment(previous);
   }
+});
+
+test("candidate mail is prioritized and its lost claims recover within the delivery window", () => {
+  const migration = readFileSync(resolve(process.cwd(),
+    "../../infrastructure/postgres/025_interview_email_and_listing.sql"), "utf8");
+  assert.match(migration,
+    /ORDER BY CASE WHEN kind = 'candidate_verification' THEN 0 ELSE 1 END/);
+  assert.equal((migration.match(/interval '30 seconds'/g) ?? []).length, 2);
+  assert.doesNotMatch(migration, /lease_until = now\(\) \+ interval '5 minutes'/);
 });
 
 function configureVercelEnvironment() {

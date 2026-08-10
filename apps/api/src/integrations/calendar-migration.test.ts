@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { advanceToDeviceConnecting } from "../billing/billing-provider-routing.helper.test.js";
 
 test("calendar channels authenticate, renew, and restore requalified events", async () => {
   const database = new PGlite({ extensions: { pgcrypto } });
@@ -168,6 +169,7 @@ async function assertMonitoredInterviewFrozen(
     events: [event], syncToken: "monitored-before",
   });
   const interviewId = await currentInterviewIdByEvent(database, organizationId, event.eventId);
+  await advanceToDeviceConnecting(database, interviewId);
   await database.query(`UPDATE interviews SET status = 'MONITORING_ACTIVE',
     monitoring_started_at = now() WHERE id = $1`, [interviewId]);
   const before = await interviewEvidence(database, interviewId);
@@ -261,7 +263,12 @@ async function assertDashboardReports(
   const report = await database.query<{ id: string }>(`INSERT INTO reports(
     interview_id, detection_result, monitoring_status, coverage_percentage, snapshot)
     VALUES ($1, 'CONFIRMED', 'COMPLETE', 100, '{}') RETURNING id`, [interviewId]);
-  await database.query(`UPDATE interviews SET status = 'REPORT_READY', report_id = $2,
+  await advanceToDeviceConnecting(database, interviewId);
+  for (const status of ["MONITORING_ACTIVE", "MEETING_COMPLETED",
+    "REPORT_PROCESSING", "REPORT_READY"]) {
+    await database.query("UPDATE interviews SET status = $2 WHERE id = $1", [interviewId, status]);
+  }
+  await database.query(`UPDATE interviews SET report_id = $2,
     scheduled_start = now() - interval '40 days', scheduled_end = now() - interval '39 days'
     WHERE id = $1`, [interviewId, report.rows[0]!.id]);
   const overview = await rpc<{ completed: number }>(database,
@@ -298,9 +305,13 @@ async function assertReconnectAndDisconnect(
   database: PGlite, integrationId: string,
   fixture: { userId: string; organizationId: string },
 ) {
-  await database.query("UPDATE interviews SET status = 'DETECTED' WHERE organization_id = $1",
-    [fixture.organizationId]);
-  const oldInterview = await currentInterviewId(database, fixture.organizationId);
+  const reconnectEvent = { ...calendarEvent(), eventId: "reconnect-old-event" };
+  await applyCalendarSync(database, integrationId, {
+    events: [reconnectEvent], syncToken: "before-reconnect",
+  });
+  const oldInterview = await currentInterviewIdByEvent(
+    database, fixture.organizationId, reconnectEvent.eventId,
+  );
   await rpc(database, "authenti8_reserve_credit", { interviewId: oldInterview });
   const beforeReconnect = await integrationVersion(database, integrationId);
   const reconnected = await rpc<{ generation: number }>(database,
@@ -308,7 +319,7 @@ async function assertReconnectAndDisconnect(
     ...integrationInput(fixture), subject: "new-google-subject", email: "new@example.com",
     calendarId: "new-calendar",
   });
-  assert.equal(await interviewStatus(database, fixture.organizationId), "EXCLUDED");
+  assert.equal(await interviewStatusById(database, oldInterview), "EXCLUDED");
   const reset = await database.query<{ sync_token: string | null; channel_id: string | null }>(
     "SELECT sync_token, channel_id FROM calendar_sync_states WHERE google_integration_id = $1",
     [integrationId],

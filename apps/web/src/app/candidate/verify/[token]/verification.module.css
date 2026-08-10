@@ -1,0 +1,45 @@
+.page { min-height: 100vh; padding: 28px clamp(22px, 5vw, 76px) 70px; color: #081226; background: radial-gradient(circle at 85% 0, #ddecff 0, transparent 30%), #f5f8fc; }
+.page header { display: flex; align-items: center; justify-content: space-between; }
+.page header > span { display: flex; gap: 7px; align-items: center; color: #617087; font-size: 12px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr); gap: clamp(36px, 8vw, 120px); align-items: end; max-width: 1240px; margin: 88px auto 38px; }
+.kicker { color: #0876f9; font-size: 11px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+.hero h1 { max-width: 760px; margin: 17px 0; font-size: clamp(52px, 7vw, 92px); font-weight: 590; letter-spacing: -.075em; line-height: .92; }
+.hero > div > p { max-width: 680px; color: #617087; font-size: 16px; line-height: 1.7; }
+.interviewCard { border: 1px solid #d7e3f1; border-radius: 25px; padding: 28px; background: rgba(255,255,255,.88); box-shadow: 0 24px 70px rgba(31,75,133,.1); }
+.interviewCard > span, .interviewCard > small { color: #7a889c; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.interviewCard h2 { margin: 15px 0 7px; font-size: 25px; letter-spacing: -.04em; }
+.interviewCard > p { margin: 0; color: #66748a; }
+.interviewCard > div { display: flex; gap: 12px; align-items: center; margin: 26px 0; border-top: 1px solid #e5ebf3; border-bottom: 1px solid #e5ebf3; padding: 19px 0; color: #0876f9; }
+.interviewCard div span { display: grid; gap: 3px; color: #122039; }
+.interviewCard div small { color: #7b899c; }
+.consentGrid { display: grid; grid-template-columns: 1.15fr .85fr; max-width: 1240px; margin: 0 auto; overflow: hidden; border: 1px solid #d7e3f1; border-radius: 28px; background: #fff; box-shadow: 0 25px 80px rgba(31,75,133,.08); }
+.scope, .decision { padding: clamp(30px, 5vw, 64px); }
+.scope h2, .decision h2 { margin: 13px 0 24px; font-size: clamp(28px, 3vw, 42px); letter-spacing: -.05em; }
+.scopeItems { display: grid; gap: 5px; }
+.scopeItems article { display: flex; gap: 15px; border-top: 1px solid #e8edf4; padding: 19px 0; color: #0876f9; }
+.scopeItems strong { color: #152238; font-size: 14px; }
+.scopeItems p, .decision > p { margin: 5px 0 0; color: #748195; font-size: 12px; line-height: 1.55; }
+.decision { color: white; background: #07101f; }
+.decision > svg { color: #58a5ff; }
+.decision > p { color: #9aa8bc; font-size: 14px; }
+.decision > small { display: block; margin-top: 18px; color: #718097; font-size: 10px; }
+.consentActions { display: grid; gap: 10px; margin-top: 30px; }
+.consentActions button { min-height: 48px; border-radius: 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.consentActions button:disabled { cursor: wait; opacity: .65; }
+.consentAccept { display: flex; justify-content: center; gap: 8px; align-items: center; border: 0; color: white; background: #0876f9; }
+.consentDecline { border: 1px solid #334158; color: #b8c3d3; background: transparent; }
+.consentActions > p { margin: 3px 0 0; color: #ffaca5; font-size: 12px; }
+.consentSpin { animation: consent-spin .8s linear infinite; }
+.consentOutcome { display: flex; gap: 13px; margin-top: 28px; border-radius: 15px; padding: 18px; background: #102c25; }
+.consentOutcome.declined { background: #2d2025; }
+.consentOutcome span { color: #5be2a8; }
+.consentOutcome.declined span { color: #ff998f; }
+.consentOutcome strong { font-size: 14px; }
+.consentOutcome p { margin: 5px 0 0; color: #aeb9c8; font-size: 12px; line-height: 1.5; }
+.portalState { display: grid; align-content: start; }
+.portalState > section { width: min(520px, 100%); margin: 20vh auto 0; border: 1px solid #d7e3f1; border-radius: 24px; padding: 38px; background: #fff; box-shadow: 0 24px 70px rgba(31,75,133,.1); }
+.portalState > section svg { color: #0876f9; }
+.portalState h1 { margin: 16px 0 8px; font-size: 34px; letter-spacing: -.04em; }
+.portalState p { margin: 0; color: #617087; line-height: 1.6; }
+@keyframes consent-spin { to { transform: rotate(360deg); } }
+@media (max-width: 780px) { .hero, .consentGrid { grid-template-columns: 1fr; } .hero { margin-top: 55px; } .page header > span { display: none; } }

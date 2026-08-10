@@ -110,6 +110,22 @@ SELECT
 $BILLING_WEBHOOKS$;
 REVOKE ALL ON FUNCTION PUBLIC.AUTHENTI8_PROCESS_BILLING_WEBHOOKS() FROM PUBLIC, ANON, AUTHENTICATED, SERVICE_ROLE;
 
+CREATE OR REPLACE FUNCTION PUBLIC.AUTHENTI8_ORCHESTRATE_INTERVIEWS() RETURNS BIGINT LANGUAGE SQL SECURITY DEFINER SET SEARCH_PATH = PUBLIC, VAULT, NET AS $INTERVIEW_ORCHESTRATOR$
+SELECT
+  NET.HTTP_POST( URL := (
+    SELECT DECRYPTED_SECRET FROM VAULT.DECRYPTED_SECRETS
+    WHERE NAME = 'authenti8_api_origin'
+  ) || '/api/v1/internal/interviews/orchestrate',
+  HEADERS := JSONB_BUILD_OBJECT( 'Content-Type', 'application/json', 'Authorization',
+    'Bearer ' || (
+      SELECT DECRYPTED_SECRET FROM VAULT.DECRYPTED_SECRETS
+      WHERE NAME = 'authenti8_mail_worker_secret'
+    ) ),
+  BODY := '{}'::JSONB,
+  TIMEOUT_MILLISECONDS := 90000 );
+$INTERVIEW_ORCHESTRATOR$;
+REVOKE ALL ON FUNCTION PUBLIC.AUTHENTI8_ORCHESTRATE_INTERVIEWS() FROM PUBLIC, ANON, AUTHENTICATED, SERVICE_ROLE;
+
 DO $CRON_REPLACE$
 DECLARE
   EXISTING_JOB RECORD;
@@ -120,6 +136,7 @@ BEGIN
       'authenti8-calendar-renewal',
       'authenti8-calendar-sync',
       'authenti8-billing-webhooks',
+      'authenti8-interview-orchestrator',
       'authenti8-cron-history-cleanup'
     )
   LOOP
@@ -147,6 +164,11 @@ SELECT
   CRON.SCHEDULE( 'authenti8-billing-webhooks',
   '10 seconds',
   'SELECT public.authenti8_process_billing_webhooks();' );
+
+SELECT
+  CRON.SCHEDULE( 'authenti8-interview-orchestrator',
+  '10 seconds',
+  'SELECT public.authenti8_orchestrate_interviews();' );
  
 -- pg_cron does not prune execution history automatically. Keep enough history
 -- for operational debugging without allowing this high-frequency job to grow
