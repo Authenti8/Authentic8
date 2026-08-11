@@ -9,8 +9,8 @@ loadEnvConfig(
   true,
 );
 
-const applicationOrigin = deploymentUrl("APP_ORIGIN", "http://localhost:3000");
-deploymentInstallerUrl(applicationOrigin);
+deploymentUrl("APP_ORIGIN", "http://localhost:3000");
+validateInstallerUrl();
 const isProduction = process.env.NODE_ENV === "production";
 const developmentApiOrigin = isProduction
   ? undefined
@@ -61,11 +61,10 @@ function deploymentUrl(name: string, developmentFallback: string) {
   }
 }
 
-function deploymentInstallerUrl(applicationOrigin: string) {
+function validateInstallerUrl() {
   const name = "NEXT_PUBLIC_WINDOWS_AGENT_INSTALLER_URL";
   const value = process.env[name]?.trim();
-  if (!value && new URL(applicationOrigin).hostname === "localhost") return;
-  if (!value) throw new Error(`Missing required production environment variable: ${name}`);
+  if (!value) return;
   try {
     const url = new URL(value);
     if (url.protocol !== "https:" || !url.pathname.toLowerCase().endsWith(".exe")) throw new Error();

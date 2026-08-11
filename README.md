@@ -62,7 +62,7 @@ Environment values needed for the starter:
 | `SMTP_*` | Production only | Sends verification and password-reset emails |
 | `AUTH_MAIL_ENCRYPTION_KEY` | Production only | Base64-encoded 32-byte key that encrypts pending auth-email tokens in the durable outbox |
 | `CRON_SECRET` | Production only | Protects the mail-worker endpoint; use the same value in Vercel and Supabase Vault |
-| `NEXT_PUBLIC_WINDOWS_AGENT_INSTALLER_URL` | Phase 17 production | HTTPS URL for the signed `Authenti8VerifySetup.exe` shown after candidate consent |
+| `NEXT_PUBLIC_WINDOWS_AGENT_INSTALLER_URL` | Before candidate rollout | HTTPS URL for the signed `Authenti8VerifySetup.exe`; it may be omitted until the GitHub release exists |
 Apply migrations using **Supabase Dashboard → SQL Editor**:
 
 - For an empty project, apply `001` through `034` once, in numeric order.

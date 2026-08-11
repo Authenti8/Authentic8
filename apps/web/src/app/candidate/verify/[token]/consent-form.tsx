@@ -55,20 +55,30 @@ function Outcome({ accepted, enrollmentToken = "" }: {
   accepted: boolean; enrollmentToken?: string;
 }) {
   const installerUrl = windowsInstallerUrl();
+  const setupReady = Boolean(installerUrl);
   return <div className={`${styles.consentOutcome} ${accepted ? "" : styles.declined}`}>
     <span>{accepted ? <Check size={22} /> : <X size={22} />}</span>
     <div><strong>{accepted ? "Consent recorded" : "Verification declined"}</strong>
-      <p>{accepted ? "Your secure device setup is ready. Open Authenti8 Verify to enroll this device."
+      <p>{accepted
+        ? setupReady
+          ? "Your secure device setup is ready. Open Authenti8 Verify to enroll this device."
+          : "The Windows installer is being prepared. Return when your hiring team confirms it is available."
         : "No monitoring will begin. The hiring team will see that verification was declined."}</p>
-      {accepted && installerUrl ? <a href={installerUrl}>Download Authenti8 Verify</a> : null}
-      {accepted ? <a href={`authenti8://verify?token=${encodeURIComponent(enrollmentToken)}`}>
-        Open after installation
-      </a> : null}</div>
+      {accepted && setupReady ? <>
+        <a href={installerUrl}>Download Authenti8 Verify</a>
+        <a href={`authenti8://verify?token=${encodeURIComponent(enrollmentToken)}`}>
+          Open after installation
+        </a>
+      </> : null}</div>
   </div>;
 }
 
 function windowsInstallerUrl() {
   const value = process.env.NEXT_PUBLIC_WINDOWS_AGENT_INSTALLER_URL ?? "";
-  try { const url = new URL(value); return url.protocol === "https:" ? url.toString() : ""; }
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.pathname.toLowerCase().endsWith(".exe")
+      ? url.toString() : "";
+  }
   catch { return ""; }
 }
