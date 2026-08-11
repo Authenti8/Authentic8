@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "nest start --watch",
-    "prebuild": "npm run build -w @authenti8/contracts && npm run build -w @authenti8/event-schemas",
+    "prebuild": "npm run build -w @authenti8/contracts && npm run build -w @authenti8/event-schemas && npm run build -w @authenti8/security && npm run build -w @authenti8/validation",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
