@@ -1,9 +1,10 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { hashToken, randomToken } from "../auth/crypto.js";
+import { deriveEnrollmentToken, hashToken, randomToken } from "../auth/crypto.js";
 import { MailService } from "../auth/mail.service.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import type {
   CandidateConsentResult, CandidateVerification, VerificationDeliveryJob,
+  EnrollmentPreparation,
 } from "./interview.types.js";
 
 const DRAIN_RUNTIME_BUDGET_MS = 50_000;
@@ -40,11 +41,23 @@ export class InterviewLifecycleService {
     });
   }
 
-  consent(token: string, decision: string, consentVersion: string, context: ConsentContext) {
-    return this.supabase.rpc<CandidateConsentResult>("authenti8_record_candidate_consent", {
+  async consent(token: string, decision: string, consentVersion: string, context: ConsentContext) {
+    const result = await this.supabase.rpc<CandidateConsentResult>("authenti8_record_candidate_consent", {
       tokenHash: hashToken(token), decision, consentVersion,
       ipAddress: context.ipAddress, userAgent: context.userAgent,
     });
+    if (!result.accepted || !result.verificationSessionId) return result;
+    const enrollmentToken = deriveEnrollmentToken(token);
+    const enrollment = await this.supabase.rpc<EnrollmentPreparation>(
+      "authenti8_prepare_device_enrollment",
+      { verificationSessionId: result.verificationSessionId,
+        secretHash: hashToken(enrollmentToken) },
+    );
+    if (!enrollment.prepared) {
+      return { accepted: false, reason: "INTERVIEW_UNAVAILABLE" };
+    }
+    return { ...result, enrollmentToken,
+      enrollmentExpiresAt: enrollment.expiresAt };
   }
 
   private async deliverNext() {

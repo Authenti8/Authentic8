@@ -27,5 +27,13 @@ export type CandidateConsentResult = {
   accepted: boolean;
   declined?: boolean;
   verificationSessionId?: string;
+  enrollmentToken?: string;
+  enrollmentExpiresAt?: string;
   reason?: "NOT_FOUND" | "ALREADY_USED" | "INTERVIEW_UNAVAILABLE" | "CONSENT_VERSION_CHANGED";
+};
+
+export type EnrollmentPreparation = {
+  prepared: boolean;
+  expiresAt?: string;
+  reason?: string;
 };

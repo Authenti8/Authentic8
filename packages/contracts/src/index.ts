@@ -105,5 +105,31 @@ export type CandidateConsentResponse = {
   accepted: boolean;
   declined?: boolean;
   verificationSessionId?: string;
+  enrollmentToken?: string;
+  enrollmentExpiresAt?: string;
   reason?: string;
+};
+
+export type EnrollmentChallenge = {
+  verificationSessionId: string;
+  challenge: string;
+  expiresAt: string;
+};
+
+export type DeviceEnrollmentRequest = {
+  token: string;
+  publicKey: string;
+  challengeSignature: string;
+  platform: "WINDOWS" | "MACOS";
+  platformVersion: string;
+  agentVersion: string;
+  deviceName?: string;
+};
+
+export type DeviceEnrollmentResponse = {
+  enrolled: true;
+  deviceId: string;
+  verificationSessionId: string;
+  eligibleStart: string;
+  eligibleEnd: string;
 };

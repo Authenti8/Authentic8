@@ -9,7 +9,8 @@ loadEnvConfig(
   true,
 );
 
-deploymentUrl("APP_ORIGIN", "http://localhost:3000");
+const applicationOrigin = deploymentUrl("APP_ORIGIN", "http://localhost:3000");
+deploymentInstallerUrl(applicationOrigin);
 const isProduction = process.env.NODE_ENV === "production";
 const developmentApiOrigin = isProduction
   ? undefined
@@ -58,4 +59,15 @@ function deploymentUrl(name: string, developmentFallback: string) {
   } catch {
     throw new Error(`${name} must be a valid URL`);
   }
+}
+
+function deploymentInstallerUrl(applicationOrigin: string) {
+  const name = "NEXT_PUBLIC_WINDOWS_AGENT_INSTALLER_URL";
+  const value = process.env[name]?.trim();
+  if (!value && new URL(applicationOrigin).hostname === "localhost") return;
+  if (!value) throw new Error(`Missing required production environment variable: ${name}`);
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || !url.pathname.toLowerCase().endsWith(".exe")) throw new Error();
+  } catch { throw new Error(`${name} must be an HTTPS .exe URL`); }
 }

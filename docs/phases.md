@@ -1059,6 +1059,10 @@ IF candidate declines:
 
 # Phase 16 — Candidate Device Enrollment
 
+**Implementation status: Complete.** Consent now creates a hash-only, expiring enrollment secret;
+the agent proves possession of a new ephemeral Ed25519 key against a server challenge, one active
+device is enforced per session, and signed ordered telemetry is rejected unless that device enrolled.
+
 ## Feature
 
 Securely connect Authenti8 Verify to the correct interview.
@@ -1099,6 +1103,11 @@ Backend:
 ---
 
 # Phase 17 — Authenti8 Verify Installer and Updater
+
+**Implementation status: Repository implementation complete; Windows release ceremony pending.**
+The Windows package enforces Authenticode at installation, registers the custom protocol and native
+host, supports uninstall, and verifies Ed25519 update manifests and package hashes. A distributable
+installer still requires the external Authenticode certificate and a Windows release build.
 
 ## Feature
 
@@ -1159,6 +1168,10 @@ ON application start:
 ---
 
 # Phase 18 — Windows Process Detection
+
+**Implementation status: Implemented for the Windows 11 pilot agent; laboratory validation pending.**
+The local collector reconciles processes, caches executable identity by path/size/modification time,
+and treats names as low confidence. No prohibited-tool rule is enabled until Phase 28 validation.
 
 ## Feature
 
@@ -1225,6 +1238,10 @@ ELSE IF only process name matches:
 
 # Phase 19 — Windows Invisible Overlay Detection
 
+**Implementation status: Implemented for the Windows 11 pilot agent; clean-corpus validation pending.**
+The Win32 sensor captures ownership, visibility, bounds, extended styles, and display affinity without
+screenshots; overlay evidence can become high confidence only with authoritative process identity.
+
 ## Feature
 
 Detect transparent, always-on-top, and capture-excluded windows.
@@ -1279,6 +1296,10 @@ IF unknown process owns suspicious overlay:
 ---
 
 # Phase 20 — Windows Audio-Route Detection
+
+**Implementation status: Implemented for the Windows 11 pilot agent; device-matrix validation pending.**
+The Core Audio sensor baselines capture/render endpoints, communications defaults, state, names, and
+providers; a virtual device never confirms a result without authoritative process and active-use proof.
 
 ## Feature
 

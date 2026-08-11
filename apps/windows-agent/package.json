@@ -5,9 +5,20 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": { "authenti8-verify": "dist/cli.js" },
   "scripts": {
     "prebuild": "npm run build -w @authenti8/event-schemas",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "package:windows": "node scripts/package-windows.mjs",
+    "pretest": "npm run build -w @authenti8/event-schemas && node -e \"require('node:fs').rmSync('.test-dist',{recursive:true,force:true})\"",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/test/*.test.js"
   },
-  "dependencies": { "@authenti8/event-schemas": "0.1.0" }
+  "dependencies": {
+    "@authenti8/detection-rules": "0.1.0",
+    "@authenti8/event-schemas": "0.1.0",
+    "@authenti8/security": "0.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
 }

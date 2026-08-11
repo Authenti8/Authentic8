@@ -36,6 +36,7 @@
 .consentOutcome.declined span { color: #ff998f; }
 .consentOutcome strong { font-size: 14px; }
 .consentOutcome p { margin: 5px 0 0; color: #aeb9c8; font-size: 12px; line-height: 1.5; }
+.consentOutcome a { display: inline-flex; margin-top: 12px; border-radius: 9px; padding: 10px 14px; color: white; background: #0876f9; font-size: 12px; font-weight: 700; text-decoration: none; }
 .portalState { display: grid; align-content: start; }
 .portalState > section { width: min(520px, 100%); margin: 20vh auto 0; border: 1px solid #d7e3f1; border-radius: 24px; padding: 38px; background: #fff; box-shadow: 0 24px 70px rgba(31,75,133,.1); }
 .portalState > section svg { color: #0876f9; }

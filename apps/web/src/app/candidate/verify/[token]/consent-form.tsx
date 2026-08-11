@@ -11,6 +11,7 @@ export function ConsentForm({ token, consentVersion }: {
 }) {
   const [state, setState] = useState<"idle" | "submitting" | "accepted" | "declined">("idle");
   const [error, setError] = useState("");
+  const [enrollmentToken, setEnrollmentToken] = useState("");
 
   async function decide(decision: "ACCEPTED" | "DECLINED") {
     if (state !== "idle") return;
@@ -23,6 +24,10 @@ export function ConsentForm({ token, consentVersion }: {
       });
       const result = await response.json() as CandidateConsentResponse & { message?: string };
       if (!response.ok || result.reason) throw new Error(result.message ?? "This link is no longer available.");
+      if (decision === "ACCEPTED" && !result.enrollmentToken) {
+        throw new Error("Device enrollment could not be prepared.");
+      }
+      setEnrollmentToken(result.enrollmentToken ?? "");
       setState(decision === "ACCEPTED" ? "accepted" : "declined");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to save your choice.");
@@ -30,7 +35,7 @@ export function ConsentForm({ token, consentVersion }: {
     }
   }
 
-  if (state === "accepted") return <Outcome accepted />;
+  if (state === "accepted") return <Outcome accepted enrollmentToken={enrollmentToken} />;
   if (state === "declined") return <Outcome accepted={false} />;
   return (
     <div className={styles.consentActions}>
@@ -46,11 +51,24 @@ export function ConsentForm({ token, consentVersion }: {
   );
 }
 
-function Outcome({ accepted }: { accepted: boolean }) {
+function Outcome({ accepted, enrollmentToken = "" }: {
+  accepted: boolean; enrollmentToken?: string;
+}) {
+  const installerUrl = windowsInstallerUrl();
   return <div className={`${styles.consentOutcome} ${accepted ? "" : styles.declined}`}>
     <span>{accepted ? <Check size={22} /> : <X size={22} />}</span>
     <div><strong>{accepted ? "Consent recorded" : "Verification declined"}</strong>
-      <p>{accepted ? "Your secure device setup is ready. Keep this page available for the next step."
-        : "No monitoring will begin. The hiring team will see that verification was declined."}</p></div>
+      <p>{accepted ? "Your secure device setup is ready. Open Authenti8 Verify to enroll this device."
+        : "No monitoring will begin. The hiring team will see that verification was declined."}</p>
+      {accepted && installerUrl ? <a href={installerUrl}>Download Authenti8 Verify</a> : null}
+      {accepted ? <a href={`authenti8://verify?token=${encodeURIComponent(enrollmentToken)}`}>
+        Open after installation
+      </a> : null}</div>
   </div>;
+}
+
+function windowsInstallerUrl() {
+  const value = process.env.NEXT_PUBLIC_WINDOWS_AGENT_INSTALLER_URL ?? "";
+  try { const url = new URL(value); return url.protocol === "https:" ? url.toString() : ""; }
+  catch { return ""; }
 }

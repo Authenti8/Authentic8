@@ -1,5 +1,6 @@
 import {
   createHash,
+  createHmac,
   randomBytes,
   scrypt as scryptCallback,
   timingSafeEqual,
@@ -14,6 +15,12 @@ export function randomToken(bytes = 32) {
 
 export function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
+}
+
+export function deriveEnrollmentToken(candidateToken: string) {
+  return createHmac("sha256", candidateToken)
+    .update("authenti8-device-enrollment-v1")
+    .digest("hex");
 }
 
 export async function hashPassword(password: string) {

@@ -2,7 +2,8 @@ import { telemetrySchemaVersion, type TelemetryEnvelope } from "@authenti8/event
 
 const eventTypes = new Set([
   "HEARTBEAT", "MONITORING_STARTED", "MONITORING_STOPPED",
-  "PROCESS_OBSERVED", "WINDOW_OBSERVED", "PERMISSION_CHANGED",
+  "PROCESS_OBSERVED", "WINDOW_OBSERVED", "AUDIO_ENDPOINT_OBSERVED",
+  "DETECTION_SIGNAL", "PERMISSION_CHANGED",
 ]);
 const platforms = new Set(["WINDOWS", "MACOS", "CHROME"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

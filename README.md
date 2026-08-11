@@ -62,14 +62,14 @@ Environment values needed for the starter:
 | `SMTP_*` | Production only | Sends verification and password-reset emails |
 | `AUTH_MAIL_ENCRYPTION_KEY` | Production only | Base64-encoded 32-byte key that encrypts pending auth-email tokens in the durable outbox |
 | `CRON_SECRET` | Production only | Protects the mail-worker endpoint; use the same value in Vercel and Supabase Vault |
+| `NEXT_PUBLIC_WINDOWS_AGENT_INSTALLER_URL` | Phase 17 production | HTTPS URL for the signed `Authenti8VerifySetup.exe` shown after candidate consent |
 Apply migrations using **Supabase Dashboard → SQL Editor**:
 
-- For an empty project, apply `001` through `020` once, in numeric order.
+- For an empty project, apply `001` through `034` once, in numeric order.
 - For an existing Authenti8 project, first run
   `SELECT version FROM schema_migrations ORDER BY applied_at;`, then apply only
-  the missing files. A project already on `017` should apply `018` through `020`;
-  a project already on `018` should apply `019` and `020`; a project already on
-  `019` should apply `020`.
+  the missing files in numeric order. A project already on `027` should apply
+  `028`, `029`, `030`, `031`, `032`, `033`, and `034`.
 
 Do not rerun an applied migration. Migrations `007` and `008` install the
 server-only RPC functions and grant them only to Supabase's `service_role`.
@@ -93,6 +93,20 @@ webhook inbox used to acknowledge provider deliveries before processing.
 Migration `020` binds subscription lifecycle events to authorized provider
 records, prevents stale recoveries from superseding newer checkouts, and limits
 self-service extra credits to Starter and Professional workspaces.
+Migrations `028` and `029` add single-use candidate-device enrollment, ephemeral
+Ed25519 device binding, and signed ordered agent telemetry. Apply them after
+`027` before testing Authenti8 Verify.
+Migration `030` makes enrollment replay idempotent and enforces atomic monitoring
+start, stop, credit, and telemetry ordering for databases that already applied
+`028` and `029`.
+Migration `031` makes exact signed-event retries idempotent so a Windows agent
+can recover its DPAPI-protected event chain after a crash.
+Migration `032` lets completed or just-expired sessions expose their enrolled
+public key only long enough for the ingestion RPC to accept an exact signed replay.
+Migration `033` makes a completed device enrollment recoverable with the same
+DPAPI-protected key if its successful HTTP response was lost.
+Migration `034` permits signed events captured before the authorized end, plus
+the terminal stop event, to arrive during a bounded five-minute delivery grace.
 Migration `007` also disables the obsolete `authenti8_backend` login used by
 earlier installations. The application then uses HTTPS through Supabase's Data
 API—there is no database URL, connection pooler, or migration credential in the

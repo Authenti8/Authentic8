@@ -1,10 +1,4 @@
-import { telemetrySchemaVersion, type TelemetryEnvelope } from "@authenti8/event-schemas";
-
-export const windowsAgentProtocol = {
-  platform: "WINDOWS",
-  telemetrySchemaVersion,
-} as const;
-
-export function eventSignature(event: TelemetryEnvelope) {
-  return event.signature;
-}
+export { WindowsAgent } from "./windows-agent.js";
+export { enrollDevice } from "./enrollment-client.js";
+export { verifyUpdateManifest } from "./update-verifier.js";
+export type { AgentConfiguration, DetectionSignal, SignedUpdateManifest } from "./types.js";

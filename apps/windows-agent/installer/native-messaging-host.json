@@ -1,0 +1,7 @@
+{
+  "name": "com.authenti8.verify",
+  "description": "Authenti8 Verify native messaging host",
+  "path": "AUTHENTI8_INSTALL_PATH\\Authenti8VerifyNativeHost.exe",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://AUTHENTI8_EXTENSION_ID/"]
+}
