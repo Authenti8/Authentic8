@@ -1,0 +1,114 @@
+name: Windows Agent Development Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: HTTPS origin of the deployed Authenti8 application
+        required: true
+        default: https://authentic8-api.vercel.app
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-agent-development-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      AUTHENTI8_API_ORIGIN: ${{ inputs.api_origin }}
+      AUTHENTI8_BUILD_CHANNEL: development
+      DEVELOPMENT_ARTIFACT_PASSWORD: ${{ secrets.WINDOWS_DEVELOPMENT_ARTIFACT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+
+      - name: Create ephemeral development signing certificate
+        shell: pwsh
+        run: |
+          $certificate = New-SelfSignedCertificate `
+            -Type CodeSigningCert `
+            -Subject "CN=Authenti8 Development,O=Authenti8" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -KeyAlgorithm RSA `
+            -KeyLength 3072 `
+            -HashAlgorithm SHA256 `
+            -KeyExportPolicy NonExportable `
+            -NotAfter (Get-Date).AddDays(14)
+          Export-Certificate `
+            -Cert $certificate `
+            -FilePath "$env:RUNNER_TEMP\Authenti8Development.cer" | Out-Null
+          Import-Certificate `
+            -FilePath "$env:RUNNER_TEMP\Authenti8Development.cer" `
+            -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
+          Import-Certificate `
+            -FilePath "$env:RUNNER_TEMP\Authenti8Development.cer" `
+            -CertStoreLocation "Cert:\CurrentUser\TrustedPublisher" | Out-Null
+          $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+            -Filter signtool.exe -Recurse |
+            Where-Object FullName -Match '\\x64\\signtool\.exe$' |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signTool) { throw "Windows SDK SignTool was not found." }
+          "WINDOWS_SIGNTOOL=$signTool" >> $env:GITHUB_ENV
+          "WINDOWS_CERT_THUMBPRINT=$($certificate.Thumbprint)" >> $env:GITHUB_ENV
+
+      - name: Build self-signed development installer
+        run: npm run package:windows -w @authenti8/windows-agent
+
+      - name: Verify signatures and prepare artifact
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:DEVELOPMENT_ARTIFACT_PASSWORD) -or
+              $env:DEVELOPMENT_ARTIFACT_PASSWORD.Length -lt 20) {
+            throw "WINDOWS_DEVELOPMENT_ARTIFACT_PASSWORD must be a 20+ character repository secret."
+          }
+          $release = "apps\windows-agent\release"
+          $expectedSubject = "O=Authenti8"
+          foreach ($name in @("Authenti8Verify.exe", "Authenti8VerifyNativeHost.exe",
+              "Authenti8VerifySetup.exe")) {
+            $path = Join-Path $release $name
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "$name is missing." }
+            $signature = Get-AuthenticodeSignature -LiteralPath $path
+            if ($signature.Status -ne "Valid" -or
+                $signature.SignerCertificate.Subject -notmatch $expectedSubject) {
+              throw "$name does not have the expected valid development signature."
+            }
+          }
+          $artifact = Join-Path $env:RUNNER_TEMP "authenti8-windows-development"
+          New-Item -ItemType Directory -Path $artifact | Out-Null
+          Copy-Item "$release\Authenti8VerifySetup.exe" `
+            "$artifact\Authenti8VerifySetup-Development.exe"
+          Copy-Item "$env:RUNNER_TEMP\Authenti8Development.cer" $artifact
+          Get-FileHash "$artifact\Authenti8VerifySetup-Development.exe", `
+            "$artifact\Authenti8Development.cer" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } |
+            Set-Content "$artifact\SHA256SUMS.txt" -Encoding ascii
+          $sevenZip = "${env:ProgramFiles}\7-Zip\7z.exe"
+          if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) {
+            throw "7-Zip was not found on the Windows runner."
+          }
+          $encrypted = Join-Path $env:RUNNER_TEMP "authenti8-windows-development.7z"
+          & $sevenZip a -t7z -mhe=on -m0=lzma2 -mx=9 `
+            "-p$env:DEVELOPMENT_ARTIFACT_PASSWORD" $encrypted "$artifact\*"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $encrypted -PathType Leaf)) {
+            throw "The encrypted development artifact could not be created."
+          }
+          & $sevenZip t "-p$env:DEVELOPMENT_ARTIFACT_PASSWORD" $encrypted
+          if ($LASTEXITCODE -ne 0) { throw "The encrypted development artifact failed validation." }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: authenti8-windows-development-${{ github.run_number }}
+          path: ${{ runner.temp }}/authenti8-windows-development.7z
+          if-no-files-found: error
+          retention-days: 7

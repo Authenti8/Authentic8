@@ -5,6 +5,8 @@ import { checkForUpdate } from "./update-verifier.js";
 declare const __AUTHENTI8_API_ORIGIN__: string | undefined;
 declare const __AUTHENTI8_RULE_KEY__: string | undefined;
 declare const __AUTHENTI8_UPDATE_KEY__: string | undefined;
+declare const __AUTHENTI8_BUILD_CHANNEL__: string | undefined;
+declare const __AUTHENTI8_DEVELOPMENT_RULE_PACK__: WindowsRulePack | undefined;
 
 export async function loadReleaseBootstrap(agentVersion: string) {
   const embeddedApi = typeof __AUTHENTI8_API_ORIGIN__ === "string" ? __AUTHENTI8_API_ORIGIN__ : undefined;
@@ -16,6 +18,16 @@ export async function loadReleaseBootstrap(agentVersion: string) {
     process.env.AUTHENTI8_RULE_PACK_PUBLIC_KEY);
   const updateKey = configured("__AUTHENTI8_UPDATE_KEY__", embeddedUpdate,
     process.env.AUTHENTI8_UPDATE_PUBLIC_KEY);
+  const buildChannel = typeof __AUTHENTI8_BUILD_CHANNEL__ === "string"
+    ? __AUTHENTI8_BUILD_CHANNEL__ : "production";
+  if (buildChannel === "development") {
+    const embeddedPack = typeof __AUTHENTI8_DEVELOPMENT_RULE_PACK__ === "object"
+      ? __AUTHENTI8_DEVELOPMENT_RULE_PACK__ : undefined;
+    if (!embeddedPack) throw new Error("The development rule pack is missing from this build.");
+    const rulePack = verifyRulePack(embeddedPack, ruleKey);
+    return { apiOrigin, rulePack, rulePackPublicKey: ruleKey, update: undefined,
+      refreshRulePack: async () => rulePack };
+  }
   const update = await checkForUpdate(
     new URL("/api/v1/agent/releases/windows", apiOrigin), agentVersion, updateKey,
   );

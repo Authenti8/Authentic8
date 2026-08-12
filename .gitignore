@@ -51,3 +51,9 @@ pnpm-debug.log*
 
 # Local certificates
 *.pem
+*.cer
+*.pfx
+
+# Native agent packaging output
+apps/windows-agent/.package/
+apps/windows-agent/release/
