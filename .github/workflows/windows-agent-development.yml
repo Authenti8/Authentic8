@@ -40,7 +40,6 @@ jobs:
             -Subject "CN=Authenti8 Development,O=Authenti8" `
             -CertStoreLocation "Cert:\CurrentUser\My" `
             -Provider "Microsoft Software Key Storage Provider" `
-            -KeySpec Signature `
             -KeyAlgorithm RSA `
             -KeyLength 3072 `
             -HashAlgorithm SHA256 `
