@@ -35,25 +35,52 @@ jobs:
       - name: Create ephemeral development signing certificate
         shell: pwsh
         run: |
-          $certificate = New-SelfSignedCertificate `
-            -Type CodeSigningCert `
-            -Subject "CN=Authenti8 Development,O=Authenti8" `
-            -CertStoreLocation "Cert:\CurrentUser\My" `
-            -Provider "Microsoft Software Key Storage Provider" `
-            -KeyAlgorithm RSA `
-            -KeyLength 3072 `
-            -HashAlgorithm SHA256 `
-            -KeyExportPolicy NonExportable `
-            -NotAfter (Get-Date).AddDays(14)
-          Export-Certificate `
-            -Cert $certificate `
-            -FilePath "$env:RUNNER_TEMP\Authenti8Development.cer" | Out-Null
-          Import-Certificate `
-            -FilePath "$env:RUNNER_TEMP\Authenti8Development.cer" `
-            -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
-          Import-Certificate `
-            -FilePath "$env:RUNNER_TEMP\Authenti8Development.cer" `
-            -CertStoreLocation "Cert:\CurrentUser\TrustedPublisher" | Out-Null
+          Write-Host "Generating ephemeral RSA code-signing certificate"
+          $rsa = [Security.Cryptography.RSA]::Create(3072)
+          $request = [Security.Cryptography.X509Certificates.CertificateRequest]::new(
+            "CN=Authenti8 Development,O=Authenti8", $rsa,
+            [Security.Cryptography.HashAlgorithmName]::SHA256,
+            [Security.Cryptography.RSASignaturePadding]::Pkcs1)
+          $keyUsage = [Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DigitalSignature
+          $request.CertificateExtensions.Add(
+            [Security.Cryptography.X509Certificates.X509KeyUsageExtension]::new($keyUsage, $true))
+          $oids = [Security.Cryptography.OidCollection]::new()
+          [void]$oids.Add([Security.Cryptography.Oid]::new("1.3.6.1.5.5.7.3.3"))
+          $request.CertificateExtensions.Add(
+            [Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($oids, $true))
+          $generated = $request.CreateSelfSigned((Get-Date).AddMinutes(-5), (Get-Date).AddDays(14))
+          $pfxPassword = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+          $pfxPath = "$env:RUNNER_TEMP\Authenti8Development.pfx"
+          $cerPath = "$env:RUNNER_TEMP\Authenti8Development.cer"
+          [IO.File]::WriteAllBytes($pfxPath, $generated.Export(
+            [Security.Cryptography.X509Certificates.X509ContentType]::Pfx, $pfxPassword))
+          [IO.File]::WriteAllBytes($cerPath, $generated.Export(
+            [Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+          $generated.Dispose()
+          $rsa.Dispose()
+
+          Write-Host "Importing signing key into the runner certificate store"
+          $certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new(
+            $pfxPath, $pfxPassword,
+            [Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet)
+          $personal = [Security.Cryptography.X509Certificates.X509Store]::new(
+            [Security.Cryptography.X509Certificates.StoreName]::My,
+            [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser)
+          $personal.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+          $personal.Add($certificate)
+          $personal.Close()
+          Remove-Item -LiteralPath $pfxPath -Force
+
+          Write-Host "Trusting the public development certificate for this ephemeral runner"
+          foreach ($storeName in @("Root", "TrustedPublisher")) {
+            $store = [Security.Cryptography.X509Certificates.X509Store]::new(
+              $storeName, [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser)
+            $store.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+            $store.Add([Security.Cryptography.X509Certificates.X509Certificate2]::new($cerPath))
+            $store.Close()
+          }
+
+          Write-Host "Locating Windows SDK SignTool"
           $signTool = Get-ChildItem `
             "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" `
             -File |
@@ -62,6 +89,7 @@ jobs:
           if (-not $signTool) { throw "Windows SDK SignTool was not found." }
           "WINDOWS_SIGNTOOL=$signTool" >> $env:GITHUB_ENV
           "WINDOWS_CERT_THUMBPRINT=$($certificate.Thumbprint)" >> $env:GITHUB_ENV
+          $certificate.Dispose()
 
       - name: Build self-signed development installer
         run: npm run package:windows -w @authenti8/windows-agent
