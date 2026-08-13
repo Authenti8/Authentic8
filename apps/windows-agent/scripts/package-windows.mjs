@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve, win32 } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
+import { inject } from "postject";
 
 const root = resolve(import.meta.dirname, "..");
 const staging = resolve(root, ".package");
@@ -32,19 +33,13 @@ await build({ entryPoints: [resolve(root, "src/cli.ts")], bundle: true, platform
     __AUTHENTI8_NATIVE_SCRIPTS__: JSON.stringify(nativeScripts),
     "import.meta.url": JSON.stringify(pathToFileURL(resolve(root, "src/powershell.ts")).href),
   } });
-const seaConfig = resolve(staging, "sea-config.json");
-writeFileSync(seaConfig, JSON.stringify({ main: resolve(staging, "agent.cjs"),
-  output: executable, disableExperimentalSEAWarning: true }));
-execFileSync(process.execPath, ["--build-sea", seaConfig], { stdio: "inherit" });
+await buildSeaExecutable(resolve(staging, "agent.cjs"), executable, "agent");
 signExecutable(executable);
 await build({ entryPoints: [resolve(root, "src/native-host-cli.ts")], bundle: true, platform: "node",
   format: "cjs", outfile: resolve(staging, "native-host.cjs"), define: {
     __AUTHENTI8_AGENT_VERSION__: JSON.stringify(packageMetadata.version),
   } });
-const nativeHostSeaConfig = resolve(staging, "native-host-sea-config.json");
-writeFileSync(nativeHostSeaConfig, JSON.stringify({ main: resolve(staging, "native-host.cjs"),
-  output: nativeHost, disableExperimentalSEAWarning: true }));
-execFileSync(process.execPath, ["--build-sea", nativeHostSeaConfig], { stdio: "inherit" });
+await buildSeaExecutable(resolve(staging, "native-host.cjs"), nativeHost, "native-host");
 signExecutable(nativeHost);
 cpSync(resolve(root, "native"), resolve(release, "native"), { recursive: true });
 cpSync(resolve(root, "installer"), resolve(release, "installer"), { recursive: true });
@@ -56,15 +51,12 @@ await build({ entryPoints: [resolve(root, "src/installer-cli.ts")], bundle: true
     __AUTHENTI8_RELEASE_ARCHIVE__: JSON.stringify(readFileSync(archive).toString("base64")),
     __AUTHENTI8_EXTENSION_ID__: JSON.stringify(context.extensionId),
   } });
-const installerSeaConfig = resolve(staging, "installer-sea-config.json");
-writeFileSync(installerSeaConfig, JSON.stringify({ main: resolve(staging, "installer.cjs"),
-  output: installer, disableExperimentalSEAWarning: true }));
-execFileSync(process.execPath, ["--build-sea", installerSeaConfig], { stdio: "inherit" });
+await buildSeaExecutable(resolve(staging, "installer.cjs"), installer, "installer");
 signExecutable(installer);
 
 function releaseContext() {
   if (process.platform !== "win32") throw new Error("Windows packaging must run on Windows.");
-  if (Number(process.versions.node.split(".")[0]) < 26) throw new Error("Node 26+ is required for --build-sea.");
+  if (Number(process.versions.node.split(".")[0]) < 20) throw new Error("Node 20+ is required for SEA packaging.");
   const channel = process.env.AUTHENTI8_BUILD_CHANNEL === "development" ? "development" : "production";
   for (const name of ["AUTHENTI8_API_ORIGIN", "WINDOWS_SIGNTOOL", "WINDOWS_CERT_THUMBPRINT"]) {
     if (!process.env[name]) throw new Error(`${name} is required for a signed Windows build.`);
@@ -85,6 +77,21 @@ function releaseContext() {
   return { channel, apiOrigin, extensionId: process.env.AUTHENTI8_CHROME_EXTENSION_ID,
     rulePublicKey: process.env.AUTHENTI8_RULE_PACK_PUBLIC_KEY,
     updatePublicKey: process.env.AUTHENTI8_UPDATE_PUBLIC_KEY, developmentRulePack: undefined };
+}
+
+async function buildSeaExecutable(entrypoint, destination, name) {
+  const blob = resolve(staging, `${name}.blob`);
+  const config = resolve(staging, `${name}-sea-config.json`);
+  writeFileSync(config, JSON.stringify({ main: entrypoint, output: blob,
+    disableExperimentalSEAWarning: true }));
+  execFileSync(process.execPath, ["--experimental-sea-config", config], { stdio: "inherit" });
+  copyFileSync(process.execPath, destination);
+  // The Node runtime distributed for Windows is Authenticode-signed. Its signature must be
+  // removed before changing PE resources; the completed executable is signed immediately after.
+  execFileSync(process.env.WINDOWS_SIGNTOOL, ["remove", "/s", destination], { stdio: "inherit" });
+  await inject(destination, "NODE_SEA_BLOB", readFileSync(blob), {
+    sentinelFuse: "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2",
+  });
 }
 
 function signExecutable(path) {

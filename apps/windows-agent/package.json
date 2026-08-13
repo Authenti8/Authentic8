@@ -5,7 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": { "authenti8-verify": "dist/cli.js" },
+  "bin": {
+    "authenti8-verify": "dist/cli.js"
+  },
   "scripts": {
     "prebuild": "npm run build -w @authenti8/event-schemas",
     "build": "tsc -p tsconfig.json",
@@ -20,6 +22,7 @@
     "@authenti8/security": "0.1.0"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6"
   }
 }
