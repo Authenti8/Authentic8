@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve, win32 } from "node:path";
+import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = resolve(import.meta.dirname, "..");
@@ -29,6 +30,7 @@ await build({ entryPoints: [resolve(root, "src/cli.ts")], bundle: true, platform
       ? JSON.stringify(context.developmentRulePack) : "undefined",
     __AUTHENTI8_AGENT_VERSION__: JSON.stringify(packageMetadata.version),
     __AUTHENTI8_NATIVE_SCRIPTS__: JSON.stringify(nativeScripts),
+    "import.meta.url": JSON.stringify(pathToFileURL(resolve(root, "src/powershell.ts")).href),
   } });
 const seaConfig = resolve(staging, "sea-config.json");
 writeFileSync(seaConfig, JSON.stringify({ main: resolve(staging, "agent.cjs"),
