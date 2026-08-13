@@ -56,29 +56,9 @@ jobs:
             [Security.Cryptography.X509Certificates.X509ContentType]::Pfx, $pfxPassword))
           [IO.File]::WriteAllBytes($cerPath, $generated.Export(
             [Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+          $thumbprint = $generated.Thumbprint
           $generated.Dispose()
           $rsa.Dispose()
-
-          Write-Host "Importing signing key into the runner certificate store"
-          $certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new(
-            $pfxPath, $pfxPassword,
-            [Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet)
-          $personal = [Security.Cryptography.X509Certificates.X509Store]::new(
-            [Security.Cryptography.X509Certificates.StoreName]::My,
-            [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser)
-          $personal.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-          $personal.Add($certificate)
-          $personal.Close()
-          Remove-Item -LiteralPath $pfxPath -Force
-
-          Write-Host "Trusting the public development certificate for this ephemeral runner"
-          foreach ($storeName in @("Root", "TrustedPublisher")) {
-            $store = [Security.Cryptography.X509Certificates.X509Store]::new(
-              $storeName, [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser)
-            $store.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-            $store.Add([Security.Cryptography.X509Certificates.X509Certificate2]::new($cerPath))
-            $store.Close()
-          }
 
           Write-Host "Locating Windows SDK SignTool"
           $signTool = Get-ChildItem `
@@ -87,12 +67,22 @@ jobs:
             Sort-Object FullName -Descending |
             Select-Object -First 1 -ExpandProperty FullName
           if (-not $signTool) { throw "Windows SDK SignTool was not found." }
+          Write-Output "::add-mask::$pfxPassword"
           "WINDOWS_SIGNTOOL=$signTool" >> $env:GITHUB_ENV
-          "WINDOWS_CERT_THUMBPRINT=$($certificate.Thumbprint)" >> $env:GITHUB_ENV
-          $certificate.Dispose()
+          "WINDOWS_CERT_PFX=$pfxPath" >> $env:GITHUB_ENV
+          "WINDOWS_CERT_PFX_PASSWORD=$pfxPassword" >> $env:GITHUB_ENV
+          "WINDOWS_CERT_THUMBPRINT=$thumbprint" >> $env:GITHUB_ENV
 
       - name: Build self-signed development installer
         run: npm run package:windows -w @authenti8/windows-agent
+
+      - name: Delete ephemeral signing key
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath $env:WINDOWS_CERT_PFX) {
+            Remove-Item -LiteralPath $env:WINDOWS_CERT_PFX -Force
+          }
 
       - name: Verify signatures and prepare artifact
         shell: pwsh
@@ -102,15 +92,15 @@ jobs:
             throw "WINDOWS_DEVELOPMENT_ARTIFACT_PASSWORD must be a 20+ character repository secret."
           }
           $release = "apps\windows-agent\release"
-          $expectedSubject = "O=Authenti8"
           foreach ($name in @("Authenti8Verify.exe", "Authenti8VerifyNativeHost.exe",
               "Authenti8VerifySetup.exe")) {
             $path = Join-Path $release $name
             if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "$name is missing." }
             $signature = Get-AuthenticodeSignature -LiteralPath $path
-            if ($signature.Status -ne "Valid" -or
-                $signature.SignerCertificate.Subject -notmatch $expectedSubject) {
-              throw "$name does not have the expected valid development signature."
+            $allowedStatus = $signature.Status -in @("Valid", "UnknownError")
+            if (-not $allowedStatus -or -not $signature.SignerCertificate -or
+                $signature.SignerCertificate.Thumbprint -ne $env:WINDOWS_CERT_THUMBPRINT) {
+              throw "$name does not have the expected intact development signature."
             }
           }
           $artifact = Join-Path $env:RUNNER_TEMP "authenti8-windows-development"

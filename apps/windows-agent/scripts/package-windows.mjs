@@ -86,10 +86,17 @@ function releaseContext() {
 }
 
 function signExecutable(path) {
-  const arguments_ = ["sign", "/sha1", process.env.WINDOWS_CERT_THUMBPRINT,
-    "/fd", "SHA256"];
-  if (context.channel === "production") arguments_.push("/tr",
-    process.env.WINDOWS_TIMESTAMP_URL ?? "http://timestamp.digicert.com", "/td", "SHA256");
+  const arguments_ = ["sign", "/fd", "SHA256"];
+  if (context.channel === "development") {
+    if (!process.env.WINDOWS_CERT_PFX || !process.env.WINDOWS_CERT_PFX_PASSWORD) {
+      throw new Error("Development signing requires an ephemeral PFX and password.");
+    }
+    arguments_.push("/f", process.env.WINDOWS_CERT_PFX,
+      "/p", process.env.WINDOWS_CERT_PFX_PASSWORD);
+  } else {
+    arguments_.push("/sha1", process.env.WINDOWS_CERT_THUMBPRINT, "/tr",
+      process.env.WINDOWS_TIMESTAMP_URL ?? "http://timestamp.digicert.com", "/td", "SHA256");
+  }
   arguments_.push(path);
   execFileSync(process.env.WINDOWS_SIGNTOOL, arguments_, { stdio: "inherit" });
 }
