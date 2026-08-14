@@ -9,7 +9,8 @@ import { MailService } from "./mail.service.js";
 const environmentKeys = [
   "NODE_ENV", "VERCEL", "SUPABASE_URL", "SUPABASE_SECRET_KEY",
   "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_PUBLISHABLE_KEY",
-  "SUPABASE_ANON_KEY", "APP_ORIGIN", "SMTP_HOST",
+  "SUPABASE_ANON_KEY", "APP_ORIGIN", "AUTH_ORIGIN", "ONBOARDING_ORIGIN",
+  "DASHBOARD_ORIGIN", "PAYMENT_ORIGIN", "SESSION_COOKIE_DOMAIN", "SMTP_HOST",
   "AUTH_MAIL_ENCRYPTION_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
   "GOOGLE_CALLBACK_URL", "GOOGLE_CALENDAR_CALLBACK_URL",
   "INTEGRATION_ENCRYPTION_KEY", "CRON_SECRET", "DODO_PAYMENTS_WEBHOOK_KEY",
@@ -53,6 +54,11 @@ function configureVercelEnvironment() {
   process.env.SUPABASE_URL = "https://mail-test.supabase.co";
   process.env.SUPABASE_SECRET_KEY = "test-secret";
   process.env.APP_ORIGIN = "https://app.authenti8.example";
+  delete process.env.AUTH_ORIGIN;
+  delete process.env.ONBOARDING_ORIGIN;
+  delete process.env.DASHBOARD_ORIGIN;
+  delete process.env.PAYMENT_ORIGIN;
+  delete process.env.SESSION_COOKIE_DOMAIN;
   process.env.SMTP_HOST = "smtp.example.com";
   process.env.AUTH_MAIL_ENCRYPTION_KEY = Buffer.alloc(32).toString("base64");
   process.env.INTEGRATION_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");

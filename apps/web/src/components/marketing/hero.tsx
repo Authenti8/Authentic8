@@ -1,47 +1,84 @@
-import { ArrowRight, CheckCircle2, Radio } from "lucide-react";
+import { ArrowRight, Check, Radio, ShieldAlert } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
 export function Hero() {
   return (
     <section className="hero">
-      <Image className="hero-image" src="/hero-office.png" alt="" fill priority sizes="100vw" />
-      <div className="hero-wash" />
       <div className="container hero-content">
         <div className="hero-copy">
-          <div className="pilot-pill"><Radio size={14} /> Design-partner pilot · Google Meet</div>
-          <h1>Interview integrity.<br /><span>Backed by evidence.</span></h1>
+          <div className="pilot-pill"><Radio size={14} /> Live interview integrity</div>
+          <h1>Know when an interview stops being <span>authentic.</span></h1>
           <p>
-            Identify active use of supported real-time AI interview tools—with
-            candidate consent, private live status, and an auditable report.
+            Authenti8 monitors consented interviews and turns device activity into a
+            clear integrity timeline—flagging cheating tools as they appear.
           </p>
           <div className="hero-actions">
-            <Link className="button-primary" href="/signup">Protect a pilot interview <ArrowRight size={17} /></Link>
+            <Link className="button-primary" href="/signup">
+              Protect an interview <ArrowRight size={17} />
+            </Link>
             <a className="button-secondary" href="#how">See how it works</a>
           </div>
-          <div className="hero-notes">
-            <span><CheckCircle2 size={16} /> No behavioral scoring</span>
-            <span><CheckCircle2 size={16} /> Google Meet stays unchanged</span>
-          </div>
         </div>
-        <LiveStatusCard />
+
+        <div className="hero-product" aria-label="Authenti8 monitoring a Google Meet interview">
+          <div className="hero-product-bar" aria-hidden="true">
+            <span className="hero-window-dots"><i /><i /><i /></span>
+            <span>Google Meet · Interview in progress</span>
+            <b><i /> Protected by Authenti8</b>
+          </div>
+          <Image
+            className="hero-meet-image"
+            src="/google_meet.png"
+            width={1672}
+            height={941}
+            alt="Recruiter and candidate speaking in a Google Meet interview"
+            preload
+            sizes="(max-width: 700px) 94vw, (max-width: 1200px) 92vw, 1180px"
+          />
+          <IntegrityLog />
+        </div>
       </div>
     </section>
   );
 }
 
-function LiveStatusCard() {
+function IntegrityLog() {
   return (
-    <aside className="live-card" aria-label="Example live interview status">
-      <div className="live-card-top"><span>Live integrity status</span><b><i /> Active</b></div>
-      <div className="candidate-row">
-        <div className="candidate-avatar">JD</div>
-        <div><strong>Candidate verified</strong><span>Windows 11 · coverage 100%</span></div>
+    <aside className="integrity-log" aria-label="Example live integrity log">
+      <div className="integrity-log-header">
+        <div><Radio size={15} /><span>Live integrity log</span></div>
+        <b><i /> Monitoring</b>
       </div>
-      <div className="timeline-row"><span>09:00</span><p>Consent recorded</p></div>
-      <div className="timeline-row"><span>09:01</span><p>Device monitoring active</p></div>
-      <div className="timeline-row current"><span>09:22</span><p>No supported tool detected</p></div>
-      <small>Detection and monitoring health are reported separately.</small>
+      <div className="integrity-log-list">
+        <LogItem delay="0.35s" time="09:00" text="Candidate joined the meeting" />
+        <LogItem delay="0.85s" time="09:01" text="Candidate identity verified" />
+        <LogItem delay="1.35s" time="09:02" text="Candidate approved consent" />
+        <LogItem delay="1.85s" time="09:03" text="Device monitoring active" />
+        <LogItem delay="2.35s" time="09:04" text="Interview monitoring healthy" />
+        <LogItem delay="3.05s" time="09:22" text="Cheating tool detected" alert />
+      </div>
     </aside>
+  );
+}
+
+function LogItem({
+  alert = false,
+  delay,
+  text,
+  time,
+}: {
+  alert?: boolean;
+  delay: string;
+  text: string;
+  time: string;
+}) {
+  return (
+    <div className={`integrity-log-item${alert ? " is-alert" : ""}`} style={{ animationDelay: delay }}>
+      <span className="integrity-log-icon" aria-hidden="true">
+        {alert ? <ShieldAlert size={15} /> : <Check size={15} />}
+      </span>
+      <div><strong>{text}</strong><time>{time}</time></div>
+    </div>
   );
 }
