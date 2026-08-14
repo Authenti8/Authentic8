@@ -1,5 +1,4 @@
 import { ArrowRight, Check, Radio, ShieldAlert } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 
 export function Hero() {
@@ -12,15 +11,19 @@ export function Hero() {
             <span>Google Meet · Interview in progress</span>
             <b><i /> Protected by Authenti8</b>
           </div>
-          <Image
+          <video
             className="hero-meet-image"
-            src="/google_meet.png"
             width={1672}
             height={941}
-            alt="Recruiter and candidate speaking in a Google Meet interview"
-            preload
-            sizes="(max-width: 700px) 94vw, (max-width: 1200px) 92vw, 1180px"
-          />
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+          >
+            <source src="/google_meet.mp4" type="video/mp4" />
+          </video>
           <IntegrityLog />
         </div>
 
