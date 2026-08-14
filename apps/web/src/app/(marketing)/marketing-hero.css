@@ -75,7 +75,7 @@
 
 .hero-copy {
   max-width: 880px;
-  margin: 0 auto 52px;
+  margin: 64px auto 0;
   text-align: center;
 }
 
@@ -213,7 +213,7 @@
 }
 
 .integrity-log-item {
-  width: 92%;
+  width: 100%;
   min-height: 56px;
   padding: 13px 18px;
   border: 1px solid rgba(255, 255, 255, 0.22);
@@ -227,7 +227,6 @@
 }
 
 .integrity-log-item:nth-child(odd) {
-  margin-left: auto;
   background: rgba(82, 89, 94, 0.9);
   color: #fff;
 }

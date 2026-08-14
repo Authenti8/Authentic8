@@ -6,21 +6,6 @@ export function Hero() {
   return (
     <section className="hero">
       <div className="container hero-content">
-        <div className="hero-copy">
-          <div className="pilot-pill"><Radio size={14} /> Live interview integrity</div>
-          <h1>Know when an interview stops being <span>authentic.</span></h1>
-          <p>
-            Authenti8 monitors consented interviews and turns device activity into a
-            clear integrity timeline—flagging cheating tools as they appear.
-          </p>
-          <div className="hero-actions">
-            <Link className="button-primary" href="/signup">
-              Protect an interview <ArrowRight size={17} />
-            </Link>
-            <a className="button-secondary" href="#how">See how it works</a>
-          </div>
-        </div>
-
         <div className="hero-product" aria-label="Authenti8 monitoring a Google Meet interview">
           <div className="hero-product-bar" aria-hidden="true">
             <span className="hero-window-dots"><i /><i /><i /></span>
@@ -37,6 +22,21 @@ export function Hero() {
             sizes="(max-width: 700px) 94vw, (max-width: 1200px) 92vw, 1180px"
           />
           <IntegrityLog />
+        </div>
+
+        <div className="hero-copy">
+          <div className="pilot-pill"><Radio size={14} /> Live interview integrity</div>
+          <h1>Know when an interview stops being <span>authentic.</span></h1>
+          <p>
+            Authenti8 monitors consented interviews and turns device activity into a
+            clear integrity timeline—flagging cheating tools as they appear.
+          </p>
+          <div className="hero-actions">
+            <Link className="button-primary" href="/signup">
+              Protect an interview <ArrowRight size={17} />
+            </Link>
+            <a className="button-secondary" href="#how">See how it works</a>
+          </div>
         </div>
       </div>
     </section>

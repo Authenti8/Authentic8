@@ -351,7 +351,7 @@
   .nav-cta { min-height: 39px; padding-inline: 15px; font-size: 12px; }
   .hero { padding: 68px 0 54px; }
   .hero-content { padding-top: 58px; }
-  .hero-copy { margin-bottom: 34px; }
+  .hero-copy { margin: 42px auto 0; }
   .hero h1 { font-size: clamp(43px, 13.5vw, 64px); }
   .hero-copy > p { font-size: 17px; }
   .hero-actions { align-items: stretch; flex-direction: column; }
