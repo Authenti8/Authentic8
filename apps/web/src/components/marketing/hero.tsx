@@ -46,10 +46,6 @@ export function Hero() {
 function IntegrityLog() {
   return (
     <aside className="integrity-log" aria-label="Example live integrity log">
-      <div className="integrity-log-header">
-        <div><Radio size={15} /><span>Live integrity log</span></div>
-        <b><i /> Monitoring</b>
-      </div>
       <div className="integrity-log-list">
         <LogItem delay="0.35s" time="09:00" text="Candidate joined the meeting" />
         <LogItem delay="0.85s" time="09:01" text="Candidate identity verified" />
