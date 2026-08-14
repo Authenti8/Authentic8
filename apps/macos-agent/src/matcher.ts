@@ -12,7 +12,8 @@ export function matchMacosSnapshot(snapshot: MacosSnapshot, pack: MacosRulePack)
         && window.onScreen && (window.layer > 0 || window.alpha < 1));
       const audio = snapshot.audioDevices.some((device) => device.virtual
         && rule.virtualAudioNames?.some((name) => name === device.name));
-      matches.push({ ruleKey: rule.key, family: rule.family, processId: application.processId,
+      matches.push({ ruleKey: rule.key, ruleVersion: rule.version, family: rule.family,
+        processId: application.processId,
         identityEvidence: identity, activeUseEvidence: [overlay && "OVERLAY", audio && "AUDIO_ROUTE"]
           .filter(Boolean) as string[], confirmed: rule.overlayRequired ? overlay : overlay || audio });
     }
@@ -35,5 +36,6 @@ function identityEvidence(application: MacosSnapshot["applications"][number],
   return evidence;
 }
 
-type Match = { ruleKey: string; family: string; processId: number; identityEvidence: string[];
+type Match = { ruleKey: string; ruleVersion: number; family: string; processId: number;
+  identityEvidence: string[];
   activeUseEvidence: string[]; confirmed: boolean };

@@ -16,6 +16,7 @@ import { recoverInterruptedUpdate } from "../src/update-recovery.js";
 import { windowsSystemExecutable, windowsSystemRoot } from "../src/powershell.js";
 import { TelemetryDelivery } from "../src/telemetry-delivery.js";
 import type { EnrolledIdentity } from "../src/types.js";
+import { browserEvidenceUnavailable } from "../src/windows-agent.js";
 
 test("Windows helpers honor and validate the configured system directory", () => {
   const environment = { SystemRoot: "D:\\WinNT" };
@@ -35,6 +36,13 @@ test("activation accepts only the Authenti8 protocol and a strong token", () => 
     enrollmentToken: token, agentVersion: "1.0.0", rulePackVersion: "1" }));
   assert.throws(() => validateConfiguration({ apiOrigin: "http://remote.test",
     enrollmentToken: token, agentVersion: "1.0.0", rulePackVersion: "1" }));
+});
+
+test("missing browser evidence becomes unhealthy once and only after the grace period", () => {
+  assert.equal(browserEvidenceUnavailable(10_000, false, 9_999), false);
+  assert.equal(browserEvidenceUnavailable(10_000, false, 10_000), true);
+  assert.equal(browserEvidenceUnavailable(10_000, true, 20_000), false);
+  assert.equal(browserEvidenceUnavailable(0, false, 20_000), false);
 });
 
 test("snapshot diff emits changes and removals instead of complete lists", () => {

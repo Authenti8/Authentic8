@@ -17,8 +17,9 @@ export async function enqueueBrowserEvidence(request: NativeRequest) {
   if (normalized.some((item) => !item)) return false;
   const health = { eventType: "BROWSER_PROFILE_HEALTH", payload: {
     profileInstanceId: profile, nativeHostConnected: true,
-    activeProfileVerified: request.activeProfileVerified === true,
-    ...(request.activeProfileVerified === true ? {} : { reason: "PROFILE_MISMATCH" }),
+    activeProfileVerified: request.activeProfileVerified === true && request.rulePackVerified === true,
+    ...(request.rulePackVerified !== true ? { reason: "RULE_PACK_UNAVAILABLE" }
+      : request.activeProfileVerified === true ? {} : { reason: "PROFILE_MISMATCH" }),
   } } satisfies SpooledBrowserEvidence;
   const encoded = Buffer.from(JSON.stringify([health, ...normalized])).toString("base64");
   if (encoded.length > 80 * 1024) return false;
@@ -52,14 +53,19 @@ function validEvidence(value: unknown): SpooledBrowserEvidence | undefined {
     return { eventType: "BROWSER_PROFILE_HEALTH", payload: {
       profileInstanceId: payload.profileInstanceId,
       nativeHostConnected: payload.nativeHostConnected === true,
-      activeProfileVerified: payload.activeProfileVerified === true } };
+      activeProfileVerified: payload.activeProfileVerified === true,
+      ...(payload.reason === "RULE_PACK_UNAVAILABLE" || payload.reason === "PROFILE_MISMATCH"
+        ? { reason: payload.reason } : {}) } };
   }
   if (!/^[a-p]{32}$/.test(String(payload.extensionId ?? ""))
-    || !/^[A-Za-z0-9._-]{1,100}$/.test(String(payload.ruleKey ?? ""))) return;
+    || !/^[A-Za-z0-9._-]{1,100}$/.test(String(payload.ruleKey ?? ""))
+    || !/^[A-Za-z0-9._-]{1,100}$/.test(String(payload.rulePackVersion ?? ""))
+    || !Number.isSafeInteger(payload.ruleVersion) || Number(payload.ruleVersion) <= 0) return;
   return { eventType: value.eventType as TelemetryEventType, payload: {
     extensionId: payload.extensionId, version: String(payload.version ?? "UNKNOWN").slice(0, 50),
     enabled: payload.enabled === true, installationType: payload.installationType,
-    ruleKey: payload.ruleKey } };
+    ruleKey: payload.ruleKey, ruleVersion: payload.ruleVersion,
+    rulePackVersion: payload.rulePackVersion } };
 }
 
 function uuid(value: string) {
@@ -71,4 +77,4 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 type NativeRequest = { profileInstanceId?: string; extensionRuntimeId?: string;
-  activeProfileVerified?: boolean; evidence?: unknown };
+  activeProfileVerified?: boolean; rulePackVerified?: boolean; evidence?: unknown };

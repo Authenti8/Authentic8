@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Authenti8 Recruiter",
+  "version": "0.1.0",
+  "description": "Live integrity logs for protected Google Meet interviews.",
+  "permissions": ["alarms", "storage"],
+  "host_permissions": ["https://meet.google.com/*", "https://authenti8.com/*"],
+  "content_scripts": [{
+    "matches": ["https://meet.google.com/*"],
+    "js": ["dist/content.js"],
+    "run_at": "document_idle"
+  }],
+  "background": { "service_worker": "dist/background.js", "type": "module" },
+  "externally_connectable": { "matches": ["https://authenti8.com/*"] }
+}

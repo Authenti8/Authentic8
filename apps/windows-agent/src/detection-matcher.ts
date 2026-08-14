@@ -12,7 +12,8 @@ function matchRule(snapshot: SensorSnapshot, rule: WindowsDetectionRule): Detect
     const identity = identityEvidence(process, rule);
     if (identity.length === 0) continue;
     const active = activeEvidence(snapshot, process.processId, rule);
-    signals.push({ family: rule.family, confidence: confidence(identity, active, rule),
+    signals.push({ ruleKey: rule.key, ruleVersion: rule.version, family: rule.family,
+      confidence: confidence(identity, active, rule),
       identityEvidence: identity, activeUseEvidence: active });
   }
   return signals;

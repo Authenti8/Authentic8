@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "rulePackPublicKey": {
+      "type": "string",
+      "description": "Base64url-encoded Ed25519 SPKI key used to verify Chrome rule packs."
+    }
+  }
+}

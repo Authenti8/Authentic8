@@ -20,6 +20,8 @@ export class WindowsAgent {
   private scanAt = { processes: 0, windows: 0, audio: 0, heartbeat: 0 };
   private baselineCaptured = false;
   private ruleRefreshAt = 0;
+  private browserEvidenceDueAt = 0;
+  private browserUnavailableSent = false;
 
   constructor(private readonly config: AgentConfiguration) {
     validateConfiguration(config);
@@ -91,10 +93,11 @@ export class WindowsAgent {
     identity: EnrolledIdentity, eligibleEnd: number) {
     const intervals = this.config.pollIntervals ?? {};
     const collectionDeadline = eligibleEnd;
+    this.browserEvidenceDueAt = Date.now() + 45_000;
     while (!this.stopped && Date.now() < collectionDeadline) {
       await this.refreshRulePack(chain);
       await this.collectAndSend(chain, send, intervals, collectionDeadline);
-      await this.transferBrowserEvidence(chain, delivery, identity, collectionDeadline);
+      await this.transferBrowserEvidence(chain, send, delivery, identity, collectionDeadline);
       if (Date.now() < collectionDeadline && Date.now() >= this.scanAt.heartbeat) {
         await send(chain.create("HEARTBEAT", { status: "MONITORING_ACTIVE" }));
         this.scanAt.heartbeat = Date.now() + 5_000;
@@ -103,10 +106,20 @@ export class WindowsAgent {
     }
   }
 
-  private async transferBrowserEvidence(chain: EventChain, delivery: TelemetryDelivery,
-    identity: EnrolledIdentity, deadline: number) {
+  private async transferBrowserEvidence(chain: EventChain, send: Sender,
+    delivery: TelemetryDelivery, identity: EnrolledIdentity, deadline: number) {
     const claim = await claimBrowserEvidence();
-    if (!claim) return;
+    if (!claim) {
+      if (browserEvidenceUnavailable(this.browserEvidenceDueAt, this.browserUnavailableSent)
+        && Date.now() < deadline) {
+        await send(chain.create("PERMISSION_CHANGED", { sensor: "BROWSER", available: false,
+          required: true, reason: "EXTENSION_DISABLED" }));
+        this.browserUnavailableSent = true;
+      }
+      return;
+    }
+    this.browserEvidenceDueAt = Date.now() + 45_000;
+    this.browserUnavailableSent = false;
     const prior = identity.browserEvidenceClaim;
     const start = prior?.claimId === claim.claimId ? prior.nextIndex : 0;
     for (let index = start; index < claim.evidence.length && Date.now() < deadline; index += 1) {
@@ -175,11 +188,17 @@ export class WindowsAgent {
       const key = JSON.stringify(signal);
       if (this.emittedSignals.has(key)) continue;
       this.emittedSignals.add(key);
-      const eventType = signal.confidence === "HIGH" && signal.activeUseEvidence.includes("OVERLAY")
+      const eventType = signal.confidence === "HIGH"
+        && signal.activeUseEvidence.includes("TOOL_OWNED_OVERLAY")
         ? "HIDDEN_OVERLAY_MATCH" : "KNOWN_PROCESS_MATCH";
       await send(chain.create(eventType, { ...signal }));
     }
   }
+}
+
+export function browserEvidenceUnavailable(dueAt: number, alreadyReported: boolean,
+  now = Date.now()) {
+  return !alreadyReported && dueAt > 0 && now >= dueAt;
 }
 
 function assertSupportedPlatform() {

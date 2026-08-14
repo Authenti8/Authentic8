@@ -8,7 +8,9 @@
   "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
   "scripts": {
     "prebuild": "npm run build -w @authenti8/event-schemas",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "pretest": "node -e \"require('node:fs').rmSync('.test-dist',{recursive:true,force:true})\"",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/test/*.test.js"
   },
   "dependencies": { "@authenti8/event-schemas": "0.1.0" }
 }

@@ -34,13 +34,16 @@ export type BrowserExtensionMatchEvidence = {
   enabled: boolean;
   installationType: "ADMIN" | "DEVELOPMENT" | "NORMAL" | "OTHER";
   ruleKey: string;
+  ruleVersion: number;
+  rulePackVersion: string;
 };
 
 export type BrowserProfileHealthEvidence = {
   profileInstanceId: string;
   nativeHostConnected: boolean;
   activeProfileVerified: boolean;
-  reason?: "NATIVE_HOST_UNAVAILABLE" | "PROFILE_MISMATCH" | "EXTENSION_DISABLED";
+  reason?: "NATIVE_HOST_UNAVAILABLE" | "PROFILE_MISMATCH" | "EXTENSION_DISABLED"
+    | "RULE_PACK_UNAVAILABLE";
 };
 
 export type PermissionEvidence = {

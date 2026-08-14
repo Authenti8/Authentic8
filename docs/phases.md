@@ -1710,6 +1710,13 @@ coverage_percentage =
 
 # Phase 26 — Detection Signature Database
 
+## Implementation Status
+
+Implemented with migration `036_detection_and_live_logs.sql`: immutable rule versions,
+two-person approval enforcement, signed per-platform packs, immediate disablement, and retained
+superseded packs for rollback. Agents accept only signed, unexpired packs and attach pack versions
+to every telemetry envelope.
+
 ## Feature
 
 Maintain technical signatures for supported cheating tools.
@@ -1767,6 +1774,12 @@ Detection rule contains:
 ---
 
 # Phase 27 — Detection Decision Engine
+
+## Implementation Status
+
+Implemented as a server-authoritative decision path. High-confidence technical identities and
+complete medium-confidence combinations can create immutable confirmed incidents; low-confidence
+behavior, missed heartbeats, and incomplete evidence are retained without changing the verdict.
 
 ## Feature
 
@@ -1840,6 +1853,13 @@ UNABLE_TO_VERIFY
 
 # Phase 28 — Known Cheating-Tool Test Pack
 
+## Implementation Status
+
+Implemented with repeatable cross-platform scenario fixtures for Cluely and Parakeet AI covering
+idle, active, minimized, overlay, capture-excluded, renamed, updated, and start-order scenarios.
+Stable signer/bundle identities ensure renaming is not the only detection boundary; unsupported
+versions remain outside published packs until compatibility tests pass.
+
 ## Feature
 
 Develop and validate detection for Cluely, Parakeet AI, and other supported tools.
@@ -1890,6 +1910,12 @@ Never create a detection signature from a single test run.
 
 # Phase 29 — Recruiter Chrome Extension
 
+## Implementation Status
+
+Implemented with strict Meet-code parsing, short-lived recruiter/workspace-bound tokens,
+server-side protected-interview authorization, refresh-safe cursors, and a production MV3 manifest.
+The extension remains invisible for unprotected or unauthorized meetings.
+
 ## Feature
 
 Recognize protected Google Meet interviews and display Authenti8 data.
@@ -1931,6 +1957,12 @@ Extension token:
 ---
 
 # Phase 30 — Live Google Meet Logs Panel
+
+## Implementation Status
+
+Implemented with a closed Shadow DOM, draggable/collapsible panel, resumable server-sent live-log
+transport, duplicate suppression, chronological ordering, reconnecting state, and persisted cursors.
+Only backend-created recruiter events render; the panel never evaluates technical evidence locally.
 
 ## Feature
 

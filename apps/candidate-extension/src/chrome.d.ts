@@ -8,6 +8,7 @@ declare const chrome: {
   alarms: { create(name: string, info: { periodInMinutes: number }): void;
     onAlarm: { addListener(listener: (alarm: { name: string }) => void): void } };
   management: { getAll(): Promise<ChromeExtensionInfo[]>;
+    onInstalled: { addListener(listener: (info: ChromeExtensionInfo) => void): void };
     onEnabled: { addListener(listener: (info: ChromeExtensionInfo) => void): void };
     onDisabled: { addListener(listener: (info: ChromeExtensionInfo) => void): void } };
   runtime: { id: string; connectNative(host: string): ChromePort;

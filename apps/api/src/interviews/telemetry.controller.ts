@@ -3,6 +3,7 @@ import type { Request } from "express";
 import { isTelemetryEnvelope } from "@authenti8/validation";
 import { RateLimiterService } from "../auth/rate-limiter.service.js";
 import { TelemetryService } from "./telemetry.service.js";
+import { SupabaseService } from "../supabase/supabase.service.js";
 
 @Controller("agent/telemetry")
 export class TelemetryController {
@@ -24,17 +25,35 @@ export class TelemetryController {
 
 @Controller("agent")
 export class AgentReleaseController {
+  constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService) {}
+
   @Get("rules/windows")
-  rules() { return releaseJson("WINDOWS_RULE_PACK_JSON"); }
+  rules() { return this.rulePack("WINDOWS", "WINDOWS_RULE_PACK_JSON"); }
 
   @Get("rules/macos")
-  macosRules() { return releaseJson("MACOS_RULE_PACK_JSON"); }
+  macosRules() { return this.rulePack("MACOS", "MACOS_RULE_PACK_JSON"); }
+
+  @Get("rules/chrome")
+  chromeRules() { return this.rulePack("CHROME", "CHROME_RULE_PACK_JSON"); }
 
   @Get("releases/windows")
   release() { return releaseJson("WINDOWS_RELEASE_MANIFEST_JSON"); }
 
   @Get("releases/macos")
   macosRelease() { return releaseJson("MACOS_RELEASE_MANIFEST_JSON"); }
+
+  private async rulePack(platform: string, fallback: string) {
+    const pack = await this.supabase.rpc<{ available: boolean; fallbackAllowed?: boolean }
+      & Record<string, unknown>>(
+      "authenti8_active_rule_pack", { platform });
+    if (pack.available) {
+      const { available, ...published } = pack;
+      void available;
+      return published;
+    }
+    if (pack.fallbackAllowed) return releaseJson(fallback);
+    throw new ServiceUnavailableException("The managed detection rule pack is unavailable.");
+  }
 }
 
 function releaseJson(name: string) {

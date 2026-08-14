@@ -41,6 +41,8 @@ export type SensorSnapshot = {
 };
 
 export type DetectionSignal = {
+  ruleKey: string;
+  ruleVersion: number;
   family: string;
   confidence: "LOW" | "HIGH";
   identityEvidence: string[];

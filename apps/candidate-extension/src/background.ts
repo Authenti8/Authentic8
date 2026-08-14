@@ -1,6 +1,7 @@
 import { changedExtension, hasRecentProfileProof, matchExtensions,
   validSignatures } from "./browser-monitor.js";
 import type { BrowserEvidence, ExtensionDescriptor } from "./browser-monitor.js";
+import { loadChromeRulePack, verifyChromeRulePack } from "./chrome-rule-pack.js";
 
 const nativeHost = "com.authenti8.verify";
 
@@ -11,6 +12,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 chrome.management.onEnabled.addListener((info) => { void extensionChanged(info); });
 chrome.management.onDisabled.addListener((info) => { void extensionChanged(info); });
+chrome.management.onInstalled.addListener((info) => { void extensionChanged(info); });
 chrome.runtime.onMessage.addListener((message) => {
   if (record(message) && message.type === "AUTHENTI8_MEET_ACTIVE") void synchronize(true);
 });
@@ -18,17 +20,18 @@ void synchronize();
 
 async function synchronize(activeProfileVerified = false) {
   const profileVerified = await activeProfileStatus(activeProfileVerified);
-  const [extensions, signatures, profileInstanceId] = await Promise.all([
+  const [extensions, pack, profileInstanceId] = await Promise.all([
     chrome.management.getAll(), loadSignatures(), profileId(),
   ]);
-  const evidence = matchExtensions(extensions.map(descriptor), signatures);
-  await sendNative(profileInstanceId, evidence, profileVerified);
+  const evidence = matchExtensions(extensions.map(descriptor), pack.signatures);
+  await sendNative(profileInstanceId, evidence, profileVerified, pack.verified);
 }
 
 async function extensionChanged(info: ChromeExtensionInfo) {
-  const [signatures, profileInstanceId] = await Promise.all([loadSignatures(), profileId()]);
-  const evidence = changedExtension(descriptor(info), signatures);
-  if (evidence) await sendNative(profileInstanceId, [evidence], await activeProfileStatus(false));
+  const [pack, profileInstanceId] = await Promise.all([loadSignatures(), profileId()]);
+  const evidence = changedExtension(descriptor(info), pack.signatures);
+  if (evidence) await sendNative(profileInstanceId, [evidence], await activeProfileStatus(false),
+    pack.verified);
 }
 
 async function activeProfileStatus(provedNow: boolean) {
@@ -43,6 +46,7 @@ async function activeProfileStatus(provedNow: boolean) {
 
 async function sendNative(
   profileInstanceId: string, evidence: BrowserEvidence[], activeProfileVerified: boolean,
+  rulePackVerified: boolean,
 ) {
   return new Promise<void>((resolve) => {
     let settled = false;
@@ -51,14 +55,31 @@ async function sendNative(
     port.onMessage.addListener(finish);
     port.onDisconnect.addListener(finish);
     port.postMessage({ type: "BROWSER_EVIDENCE", requestId: crypto.randomUUID(),
-      profileInstanceId, extensionRuntimeId: chrome.runtime.id, activeProfileVerified, evidence });
+      profileInstanceId, extensionRuntimeId: chrome.runtime.id, activeProfileVerified,
+      rulePackVerified, evidence });
     setTimeout(finish, 5_000);
   });
 }
 
 async function loadSignatures() {
-  const managed = await chrome.storage.managed.get(["prohibitedExtensionIds"]);
-  return validSignatures(managed.prohibitedExtensionIds);
+  const [managed, local] = await Promise.all([
+    chrome.storage.managed.get(["rulePackPublicKey"]),
+    chrome.storage.local.get(["verifiedChromeRulePack"]),
+  ]);
+  try {
+    const loaded = await loadChromeRulePack("https://authenti8.com/api/v1/agent/rules/chrome",
+      managed.rulePackPublicKey);
+    void chrome.storage.local.set({ verifiedChromeRulePack: loaded.signedPack })
+      .catch(() => undefined);
+    return { signatures: validSignatures(loaded.signatures), verified: true };
+  } catch {
+    try {
+      if (typeof managed.rulePackPublicKey !== "string") throw new Error("Missing key");
+      const cached = await verifyChromeRulePack(local.verifiedChromeRulePack,
+        managed.rulePackPublicKey);
+      return { signatures: validSignatures(cached), verified: true };
+    } catch { return { signatures: validSignatures(undefined), verified: false }; }
+  }
 }
 
 async function profileId() {
