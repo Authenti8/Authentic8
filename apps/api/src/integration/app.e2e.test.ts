@@ -61,7 +61,7 @@ test("signup, verification, onboarding, session, and logout work over HTTP", asy
   const organization = await http.post("/v1/organizations")
     .set("Cookie", cookie).send(validOrganization());
   assert.equal(organization.status, 201);
-  assert.equal(organization.body.next, "http://localhost:3000");
+  assert.equal(organization.body.next, loadConfig().dashboardOrigin);
   const duplicate = await http.post("/v1/organizations")
     .set("Cookie", cookie).send({ ...validOrganization(), domain: "other.example.com" });
   assert.equal(duplicate.status, 409);
