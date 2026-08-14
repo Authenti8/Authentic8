@@ -75,7 +75,7 @@ export class BillingService {
     }
     const endpoint = `/customers/${encodeURIComponent(customerId)}/customer-portal/session`;
     const portal = await this.requestDodo(endpoint, "POST", {
-      return_url: `${this.config.appOrigin}/dashboard/subscription`,
+      return_url: `${this.config.paymentOrigin}/dashboard/subscription`,
     });
     try {
       return { portalUrl: parsePortalResponse(portal).link };
@@ -242,7 +242,7 @@ export class BillingService {
       method: "POST", headers: { authorization: `Bearer ${this.config.dodo.apiKey}`,
         "content-type": "application/json", "idempotency-key": checkoutIntentId },
       body: JSON.stringify({ product_cart: [{ product_id: productId, quantity }],
-        customer: { email }, return_url: `${this.config.appOrigin}/dashboard/subscription?checkout=success`,
+        customer: { email }, return_url: `${this.config.paymentOrigin}/dashboard/subscription?checkout=success`,
         metadata: { organizationId, purpose, quantity: String(quantity), checkoutIntentId } }),
       signal: AbortSignal.timeout(15_000),
     }).then(async (response) => {

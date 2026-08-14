@@ -39,7 +39,7 @@ export class IntegrationsController {
     @Req() request: AuthenticatedRequest,
     @Res() response: Response,
   ) {
-    const origin = loadConfig().appOrigin;
+    const origin = loadConfig().dashboardOrigin;
     const browserState = readCookie(request.headers.cookie as string | undefined, INTEGRATION_STATE_COOKIE);
     clearIntegrationStateCookie(response);
     if (error || !code || !state) return response.redirect(`${origin}/dashboard/integrations?error=cancelled`);

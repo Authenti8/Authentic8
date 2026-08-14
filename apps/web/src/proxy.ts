@@ -1,20 +1,64 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const protectedPrefixes = ["/dashboard", "/onboarding"];
+const landingOrigin = process.env.APP_ORIGIN ?? "http://localhost:3000";
+const authOrigin = process.env.AUTH_ORIGIN ?? landingOrigin;
+const onboardingOrigin = process.env.ONBOARDING_ORIGIN ?? landingOrigin;
+const dashboardOrigin = process.env.DASHBOARD_ORIGIN ?? landingOrigin;
+const paymentOrigin = process.env.PAYMENT_ORIGIN ?? dashboardOrigin;
 
 export function proxy(request: NextRequest) {
-  const protectedRoute = protectedPrefixes.some((path) =>
-    request.nextUrl.pathname.startsWith(path),
-  );
-  const hasSession = request.cookies.has("authenti8_session");
-  if (protectedRoute && !hasSession) {
-    const login = new URL("/login", request.url);
-    login.searchParams.set("next", request.nextUrl.pathname);
+  const { pathname, search } = request.nextUrl;
+  const canonicalOrigin = originForPath(pathname);
+  if (canonicalOrigin && new URL(canonicalOrigin).host !== request.nextUrl.host) {
+    return NextResponse.redirect(new URL(`${pathname}${search}`, canonicalOrigin));
+  }
+
+  const rootDestination = rootPathForHost(request.nextUrl.host);
+  if (pathname === "/" && rootDestination) {
+    return NextResponse.redirect(new URL(rootDestination, request.url));
+  }
+
+  const protectedRoute = pathname.startsWith("/dashboard")
+    || pathname.startsWith("/onboarding");
+  if (protectedRoute && !request.cookies.has("authenti8_session")) {
+    const login = new URL("/login", authOrigin);
+    login.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(login);
   }
   return NextResponse.next();
 }
 
+function originForPath(pathname: string) {
+  if (isAuthPath(pathname)) return authOrigin;
+  if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+    return onboardingOrigin;
+  }
+  if (pathname === "/dashboard/subscription"
+    || pathname.startsWith("/dashboard/subscription/")) return paymentOrigin;
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    return dashboardOrigin;
+  }
+  return undefined;
+}
+
+function isAuthPath(pathname: string) {
+  return [
+    "/login", "/signup", "/forgot-password", "/reset-password",
+    "/verify-email", "/auth/complete",
+  ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
+function rootPathForHost(host: string) {
+  const landingHost = new URL(landingOrigin).host;
+  if (host !== landingHost && host === new URL(authOrigin).host) return "/login";
+  if (host !== landingHost && host === new URL(onboardingOrigin).host) return "/onboarding";
+  if (host !== landingHost && host === new URL(paymentOrigin).host) {
+    return "/dashboard/subscription";
+  }
+  if (host !== landingHost && host === new URL(dashboardOrigin).host) return "/dashboard";
+  return undefined;
+}
+
 export const config = {
-  matcher: ["/dashboard/:path*", "/onboarding/:path*"],
+  matcher: ["/((?!api/|_next/|favicon.ico|robots.txt|sitemap.xml).*)"],
 };

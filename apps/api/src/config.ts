@@ -17,9 +17,9 @@ export function loadConfig() {
   const nodeEnv = process.env.NODE_ENV ?? "development";
   const supabaseUrl = supabaseApiUrl(nodeEnv);
   const supabaseSecretKey = supabaseServerKey();
-  const appOrigin = applicationOrigin(nodeEnv);
-  const google = googleConfig(nodeEnv);
-  const googleCalendar = googleCalendarConfig(nodeEnv, appOrigin);
+  const origins = applicationOrigins(nodeEnv);
+  const google = googleConfig(nodeEnv, origins.authOrigin);
+  const googleCalendar = googleCalendarConfig(nodeEnv, origins.dashboardOrigin);
   const dodo = dodoConfig(nodeEnv);
   const supabasePublishableKey = supabaseBrowserKey(Boolean(google.googleClientId));
   const cronSecret = mailWorkerSecret(nodeEnv);
@@ -43,7 +43,7 @@ export function loadConfig() {
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean),
-    appOrigin,
+    ...origins,
     supabaseUrl,
     supabaseSecretKey,
     supabasePublishableKey,
@@ -148,30 +148,56 @@ function supabaseServerKey() {
   return key;
 }
 
-function applicationOrigin(nodeEnv: string) {
-  const value = process.env.APP_ORIGIN?.trim();
-  if (nodeEnv !== "production") return value || "http://localhost:3000";
-  const productionOrigin = productionUrl("APP_ORIGIN", value);
-  const url = new URL(productionOrigin);
-  if (url.pathname !== "/") {
-    throw new Error("APP_ORIGIN must not include a path");
+function applicationOrigins(nodeEnv: string) {
+  const appOrigin = originValue("APP_ORIGIN", nodeEnv, "http://localhost:3000");
+  const authOrigin = originValue("AUTH_ORIGIN", nodeEnv, appOrigin);
+  const onboardingOrigin = originValue("ONBOARDING_ORIGIN", nodeEnv, appOrigin);
+  const dashboardOrigin = originValue("DASHBOARD_ORIGIN", nodeEnv, appOrigin);
+  const paymentOrigin = originValue("PAYMENT_ORIGIN", nodeEnv, dashboardOrigin);
+  const cookieDomain = process.env.SESSION_COOKIE_DOMAIN?.trim() || undefined;
+  const allowedOrigins = [...new Set([
+    appOrigin, authOrigin, onboardingOrigin, dashboardOrigin, paymentOrigin,
+  ])];
+  if (nodeEnv === "production" && allowedOrigins.length > 1 && !cookieDomain) {
+    throw new Error("SESSION_COOKIE_DOMAIN is required for production subdomains");
   }
-  return url.origin;
+  if (cookieDomain && (!cookieDomain.startsWith(".") || cookieDomain.includes(":"))) {
+    throw new Error("SESSION_COOKIE_DOMAIN must be a parent domain such as .authenti8.com");
+  }
+  const parentHost = cookieDomain?.slice(1);
+  if (cookieDomain && allowedOrigins.some((origin) => {
+    const hostname = new URL(origin).hostname;
+    return hostname !== parentHost && !hostname.endsWith(cookieDomain);
+  })) {
+    throw new Error("Every application origin must belong to SESSION_COOKIE_DOMAIN");
+  }
+  return {
+    appOrigin, authOrigin, onboardingOrigin, dashboardOrigin, paymentOrigin,
+    allowedOrigins, cookieDomain,
+  };
 }
 
-function googleConfig(nodeEnv: string) {
+function googleConfig(nodeEnv: string, authOrigin: string) {
   const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
   const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
   const configured = Boolean(googleClientId || googleClientSecret);
   if (configured && (!googleClientId || !googleClientSecret)) {
     throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together");
   }
-  const fallback = "http://localhost:3000/api/v1/auth/google/callback";
+  const fallback = `${authOrigin}/api/v1/auth/google/callback`;
   const value = process.env.GOOGLE_CALLBACK_URL?.trim();
   const googleCallbackUrl = nodeEnv === "production" && configured
-    ? productionUrl("GOOGLE_CALLBACK_URL", value)
+    ? productionUrl("GOOGLE_CALLBACK_URL", value || fallback)
     : value || fallback;
   return { googleClientId, googleClientSecret, googleCallbackUrl };
+}
+
+function originValue(name: string, nodeEnv: string, fallback: string) {
+  const value = process.env[name]?.trim() || fallback;
+  if (nodeEnv !== "production") return new URL(value).origin;
+  const url = new URL(productionUrl(name, value));
+  if (url.pathname !== "/") throw new Error(`${name} must not include a path`);
+  return url.origin;
 }
 
 function productionUrl(name: string, value: string | undefined) {

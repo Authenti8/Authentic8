@@ -1,20 +1,18 @@
 "use client";
 
 import type { OnboardingResponse } from "@authenti8/contracts";
-import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import { Field, FormMessage, SelectField } from "../auth/form-controls";
 import { useApiMutation } from "../auth/use-api-mutation";
 
 export function OrganizationForm() {
-  const router = useRouter();
   const mutation = useApiMutation<OnboardingResponse>("/organizations");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(event.currentTarget));
     const result = await mutation.mutate(values);
-    if (result) router.replace(result.next);
+    if (result) window.location.assign(result.next);
   }
   return (
     <form className="onboarding-form" onSubmit={submit}>

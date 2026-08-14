@@ -7,9 +7,11 @@ export const OAUTH_STATE_COOKIE = "authenti8_oauth_state";
 export const INTEGRATION_STATE_COOKIE = "authenti8_integration_state";
 
 export function setSessionCookie(response: Response, token: SessionToken) {
+  const config = loadConfig();
   response.cookie(SESSION_COOKIE, token.rawToken, {
     httpOnly: true,
-    secure: loadConfig().isProduction,
+    secure: config.isProduction,
+    domain: config.cookieDomain,
     sameSite: "lax",
     path: "/",
     expires: token.expiresAt,
@@ -18,9 +20,11 @@ export function setSessionCookie(response: Response, token: SessionToken) {
 }
 
 export function clearSessionCookie(response: Response) {
+  const config = loadConfig();
   response.clearCookie(SESSION_COOKIE, {
     httpOnly: true,
-    secure: loadConfig().isProduction,
+    secure: config.isProduction,
+    domain: config.cookieDomain,
     sameSite: "lax",
     path: "/",
   });

@@ -50,7 +50,7 @@ export class AuthController {
     await this.limit(request, "verify", 10);
     const session = await this.auth.verifyEmail(input, metadata(request));
     setSessionCookie(response, session);
-    return { message: "Email verified.", next: "/onboarding" };
+    return { message: "Email verified.", next: loadConfig().onboardingOrigin };
   }
 
   @Post("login")
@@ -62,7 +62,7 @@ export class AuthController {
     await this.limit(request, "login", 10);
     const session = await this.auth.login(input, metadata(request));
     setSessionCookie(response, session);
-    return { message: "Welcome back.", next: "/dashboard" };
+    return { message: "Welcome back.", next: loadConfig().dashboardOrigin };
   }
 
   @Post("forgot-password")
@@ -97,10 +97,12 @@ export class AuthController {
     @Req() request: Request,
     @Res() response: Response,
   ) {
-    const origin = loadConfig().appOrigin;
+    const config = loadConfig();
     const browserState = readCookie(request.headers.cookie, OAUTH_STATE_COOKIE);
     clearOauthStateCookie(response);
-    if (error || !code || !state) return response.redirect(`${origin}/login?error=google_cancelled`);
+    if (error || !code || !state) {
+      return response.redirect(`${config.authOrigin}/login?error=google_cancelled`);
+    }
     try {
       const completed = await this.auth.finishGoogleLogin(
         code,
@@ -109,9 +111,9 @@ export class AuthController {
         metadata(request),
       );
       setSessionCookie(response, completed.session);
-      return response.redirect(`${origin}${completed.returnPath ?? "/auth/complete"}`);
+      return response.redirect(authDestination(config, completed.returnPath));
     } catch {
-      return response.redirect(`${origin}/login?error=google_failed`);
+      return response.redirect(`${config.authOrigin}/login?error=google_failed`);
     }
   }
 
@@ -136,6 +138,13 @@ export class AuthController {
     const address = request.ip ?? "unknown";
     await this.rateLimiter.consume(`ip:${address}:${scope}`, count * 4);
   }
+}
+
+function authDestination(config: ReturnType<typeof loadConfig>, path?: string) {
+  if (path?.startsWith("/onboarding")) return `${config.onboardingOrigin}${path}`;
+  if (path?.startsWith("/dashboard/subscription")) return `${config.paymentOrigin}${path}`;
+  if (path?.startsWith("/dashboard")) return `${config.dashboardOrigin}${path}`;
+  return `${config.authOrigin}/auth/complete`;
 }
 
 function metadata(request: Request) {

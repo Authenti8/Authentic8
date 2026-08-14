@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Inject, Injectable } from "@nestjs/common";
 import type { OnboardingResponse } from "@authenti8/contracts";
+import { loadConfig } from "../config.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import { isValidTimezone, normalizeDomain } from "./domain.js";
 import type { CreateOrganizationDto } from "./organizations.dto.js";
@@ -28,6 +29,6 @@ export class OrganizationsService {
     if (!result.organization) {
       throw new ConflictException("That organization or user already has an Authenti8 workspace.");
     }
-    return { organization: result.organization, next: "/dashboard" };
+    return { organization: result.organization, next: loadConfig().dashboardOrigin };
   }
 }

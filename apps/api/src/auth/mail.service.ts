@@ -164,7 +164,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     const path = kind === "verify" ? "/verify-email"
       : "/reset-password";
-    return `${this.config.appOrigin}${path}?token=${encodeURIComponent(token)}`;
+    return `${this.config.authOrigin}${path}?token=${encodeURIComponent(token)}`;
   }
 
   private encryptionKey() {

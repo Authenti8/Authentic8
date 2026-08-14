@@ -237,7 +237,7 @@ export class GoogleCalendarService {
     const result = await this.googlePost<GoogleWatchResponse>(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/watch`,
       accessToken, { id: channelId, type: "web_hook",
-      address: `${this.config.appOrigin}/api/v1/integrations/google/webhook`, token: channelToken },
+      address: `${this.config.dashboardOrigin}/api/v1/integrations/google/webhook`, token: channelToken },
     );
     if (!result.resourceId) {
       throw new BadGatewayException("Google Calendar did not return a watch resource.");

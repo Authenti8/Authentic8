@@ -45,6 +45,11 @@ Environment values needed for the starter:
 | Variable | Needed now | Purpose |
 | --- | --- | --- |
 | `APP_ORIGIN` | Yes | Public origin for the single web + API deployment; must be explicit HTTPS in production |
+| `AUTH_ORIGIN` | Production subdomains | Login and signup origin, for example `https://auth.authenti8.com` |
+| `ONBOARDING_ORIGIN` | Production subdomains | Company setup origin, for example `https://onboarding.authenti8.com` |
+| `DASHBOARD_ORIGIN` | Production subdomains | Authenticated application origin, for example `https://dashboard.authenti8.com` |
+| `PAYMENT_ORIGIN` | Production subdomains | Billing origin, for example `https://payment.authenti8.com` |
+| `SESSION_COOKIE_DOMAIN` | Production subdomains | Shared parent cookie domain, for example `.authenti8.com` |
 | `API_ORIGIN` | Local only | Standalone Nest API used by the local Next.js development rewrite; do not set it in Vercel |
 | `SUPABASE_URL` | Yes | Supabase project URL used by the server-side Data API client |
 | `SUPABASE_SECRET_KEY` | Yes* | Preferred server-only secret key; use this or the legacy service-role key |
@@ -137,12 +142,20 @@ For the existing `authentic8-api` Vercel project:
 1. Set **Root Directory** to `apps/web` and **Framework Preset** to Next.js.
 2. Enable **Include source files outside of the Root Directory in the Build Step**
    so the workspace API and shared packages are available.
-3. Keep `APP_ORIGIN=https://authentic8-api.vercel.app`.
-4. Remove `API_ORIGIN`; it is intentionally not used in production.
-5. Set `GOOGLE_CALLBACK_URL=https://authentic8-api.vercel.app/api/v1/auth/google/callback`.
-6. Set `GOOGLE_CALENDAR_CALLBACK_URL=https://authentic8-api.vercel.app/api/v1/integrations/google/callback`.
-7. Register both callback URIs in the same Google Cloud OAuth client.
-8. Redeploy the current commit without creating another Vercel project.
+3. Attach `authenti8.com`, `auth.authenti8.com`, `onboarding.authenti8.com`,
+   `dashboard.authenti8.com`, and `payment.authenti8.com` to Production.
+4. Configure the production origins and shared session domain:
+   `APP_ORIGIN=https://authenti8.com`,
+   `AUTH_ORIGIN=https://auth.authenti8.com`,
+   `ONBOARDING_ORIGIN=https://onboarding.authenti8.com`,
+   `DASHBOARD_ORIGIN=https://dashboard.authenti8.com`,
+   `PAYMENT_ORIGIN=https://payment.authenti8.com`, and
+   `SESSION_COOKIE_DOMAIN=.authenti8.com`.
+5. Remove `API_ORIGIN`; it is intentionally not used in production.
+6. Set `GOOGLE_CALLBACK_URL=https://auth.authenti8.com/api/v1/auth/google/callback`.
+7. Set `GOOGLE_CALENDAR_CALLBACK_URL=https://dashboard.authenti8.com/api/v1/integrations/google/callback`.
+8. Register both callback URIs in the same Google Cloud OAuth client, then
+   redeploy the current commit without creating another Vercel project.
 
 All existing server-only Supabase, Google, SMTP, encryption, and cron variables
 stay on this same Vercel project. After deployment, `/` serves the website,

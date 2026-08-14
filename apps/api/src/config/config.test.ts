@@ -75,12 +75,33 @@ test("production rejects localhost as the application origin", () => {
   });
 });
 
-test("configured Google login requires an explicit production callback", () => {
+test("configured Google login defaults to the authentication origin", () => {
   withProductionEnvironment(() => {
     process.env.GOOGLE_CLIENT_ID = "client";
     process.env.GOOGLE_CLIENT_SECRET = "secret";
+    process.env.SUPABASE_PUBLISHABLE_KEY = "publishable";
+    process.env.AUTH_ORIGIN = "https://auth.authenti8.example";
+    process.env.SESSION_COOKIE_DOMAIN = ".authenti8.example";
     delete process.env.GOOGLE_CALLBACK_URL;
-    assert.throws(() => loadConfig(), /GOOGLE_CALLBACK_URL/);
+    assert.equal(
+      loadConfig().googleCallbackUrl,
+      "https://auth.authenti8.example/api/v1/auth/google/callback",
+    );
+  });
+});
+
+test("production permits exact configured feature origins with a shared cookie", () => {
+  withProductionEnvironment(() => {
+    process.env.AUTH_ORIGIN = "https://auth.authenti8.example";
+    process.env.DASHBOARD_ORIGIN = "https://dashboard.authenti8.example";
+    process.env.SESSION_COOKIE_DOMAIN = ".authenti8.example";
+    const config = loadConfig();
+    assert.deepEqual(config.allowedOrigins, [
+      "https://app.authenti8.example",
+      "https://auth.authenti8.example",
+      "https://dashboard.authenti8.example",
+    ]);
+    assert.equal(config.cookieDomain, ".authenti8.example");
   });
 });
 
@@ -109,7 +130,8 @@ function withProductionEnvironment(run: () => void) {
   const names = [
     "NODE_ENV", "SMTP_HOST", "SUPABASE_URL", "SUPABASE_SECRET_KEY",
     "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_PUBLISHABLE_KEY",
-    "SUPABASE_ANON_KEY", "APP_ORIGIN",
+    "SUPABASE_ANON_KEY", "APP_ORIGIN", "AUTH_ORIGIN", "ONBOARDING_ORIGIN",
+    "DASHBOARD_ORIGIN", "PAYMENT_ORIGIN", "SESSION_COOKIE_DOMAIN",
     "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CALLBACK_URL", "AUTH_MAIL_ENCRYPTION_KEY",
     "GOOGLE_CALENDAR_CALLBACK_URL", "INTEGRATION_ENCRYPTION_KEY",
@@ -127,6 +149,11 @@ function withProductionEnvironment(run: () => void) {
   delete process.env.GOOGLE_CLIENT_ID;
   delete process.env.GOOGLE_CLIENT_SECRET;
   delete process.env.GOOGLE_CALLBACK_URL;
+  delete process.env.AUTH_ORIGIN;
+  delete process.env.ONBOARDING_ORIGIN;
+  delete process.env.DASHBOARD_ORIGIN;
+  delete process.env.PAYMENT_ORIGIN;
+  delete process.env.SESSION_COOKIE_DOMAIN;
   delete process.env.DODO_PAYMENTS_ENVIRONMENT;
   delete process.env.DODO_PAYMENTS_WEBHOOK_KEY;
   try {

@@ -2,13 +2,11 @@
 
 import type { AuthResponse } from "@authenti8/contracts";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { Field, FormMessage, SubmitButton } from "./form-controls";
 import { useApiMutation } from "./use-api-mutation";
 
 export function LoginForm({ nextPath }: { nextPath?: string }) {
-  const router = useRouter();
   const mutation = useApiMutation<AuthResponse>("/auth/login");
   const googleHref = nextPath
     ? `/api/v1/auth/google?next=${encodeURIComponent(nextPath)}`
@@ -18,7 +16,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     const result = await mutation.mutate({ email: values.get("email"), password: values.get("password") });
-    if (result) router.replace(nextPath ?? result.next ?? "/dashboard");
+    if (result) window.location.assign(nextPath ?? result.next ?? "/dashboard");
   }
 
   return (
