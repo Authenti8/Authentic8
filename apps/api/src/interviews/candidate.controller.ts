@@ -58,6 +58,16 @@ export class CandidateController {
     return result;
   }
 
+  @Post("end")
+  async end(@Body() body: VerificationBody, @Req() request: Request) {
+    const token = body?.token ?? "";
+    assertToken(token);
+    await this.limit(request, "end", 10, token);
+    const result = await this.lifecycle.endCandidateMonitoring(token) as StopResult;
+    if (!result.stopped) throw new GoneException("Monitoring is no longer active.");
+    return result;
+  }
+
   private async limit(request: Request, scope: string, count: number, token: string) {
     const address = request.ip ?? "unknown";
     await this.rateLimiter.consume(`candidate:${scope}:token:${hashToken(token)}`, count);
@@ -67,6 +77,7 @@ export class CandidateController {
 
 type VerificationBody = { token?: string };
 type ConsentBody = VerificationBody & { decision?: string; consentVersion?: string };
+type StopResult = { stopped?: boolean };
 
 function assertToken(token: string) {
   if (!/^[A-Za-z0-9_-]{32,256}$/.test(token)) {

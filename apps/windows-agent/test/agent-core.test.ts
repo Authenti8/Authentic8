@@ -14,6 +14,8 @@ import { audioChanges, processChanges, windowChanges } from "../src/snapshot-dif
 import { checkForUpdate } from "../src/update-verifier.js";
 import { recoverInterruptedUpdate } from "../src/update-recovery.js";
 import { windowsSystemExecutable, windowsSystemRoot } from "../src/powershell.js";
+import { TelemetryDelivery } from "../src/telemetry-delivery.js";
+import type { EnrolledIdentity } from "../src/types.js";
 
 test("Windows helpers honor and validate the configured system directory", () => {
   const environment = { SystemRoot: "D:\\WinNT" };
@@ -115,6 +117,52 @@ test("event chains resume from their persisted acknowledged position", () => {
   assert.equal(heartbeat.sequenceNumber, 1);
   assert.ok(heartbeat.previousEventHash);
   assert.notEqual(heartbeat.previousEventHash, started.previousEventHash);
+});
+
+test("offline telemetry remains ordered and retries without event loss", async () => {
+  const keys = generateKeyPairSync("ed25519");
+  const chain = new EventChain({ sessionId: randomUUID(),
+    privateKey: keys.privateKey.export({ format: "pem", type: "pkcs8" }).toString(),
+    agentVersion: "1.0.0", rulePackVersion: "1" });
+  const identity: EnrolledIdentity = { deviceId: randomUUID(), verificationSessionId: randomUUID(),
+    eligibleStart: new Date().toISOString(), eligibleEnd: new Date(Date.now() + 60_000).toISOString(),
+    privateKey: "fixture" };
+  const delivered: number[] = []; let attempts = 0; let persisted = 0;
+  const client = { post: async (_path: string, event: { sequenceNumber: number }) => {
+    attempts += 1; if (attempts === 1) throw new Error("offline");
+    delivered.push(event.sequenceNumber); return {};
+  } };
+  const queue = new TelemetryDelivery(client as never, "token", identity,
+    async () => { persisted += 1; });
+  await queue.enqueue(chain.create("MONITORING_STARTED", {}));
+  await queue.enqueue(chain.create("HEARTBEAT", {}));
+  assert.equal(await queue.flush(true), false);
+  assert.deepEqual(identity.pendingEvents?.map((event) => event.sequenceNumber), [0, 1]);
+  assert.equal(await queue.flush(true), true);
+  assert.deepEqual(delivered, [0, 1]);
+  assert.equal(identity.pendingEvents?.length, 0);
+  assert.ok(persisted >= 4);
+});
+
+test("browser claim progress is persisted atomically with its telemetry event", async () => {
+  const keys = generateKeyPairSync("ed25519");
+  const chain = new EventChain({ sessionId: randomUUID(),
+    privateKey: keys.privateKey.export({ format: "pem", type: "pkcs8" }).toString(),
+    agentVersion: "1.0.0", rulePackVersion: "1" });
+  const identity: EnrolledIdentity = { deviceId: randomUUID(), verificationSessionId: randomUUID(),
+    eligibleStart: new Date().toISOString(), eligibleEnd: new Date(Date.now() + 60_000).toISOString(),
+    privateKey: "fixture" };
+  const snapshots: EnrolledIdentity[] = [];
+  const queue = new TelemetryDelivery({ post: async () => ({}) } as never, "token", identity,
+    async (_token, value) => { snapshots.push(structuredClone(value)); });
+  await queue.enqueueClaimed(chain.create("BROWSER_PROFILE_HEALTH", {}), randomUUID(), 1,
+    chain.state());
+  assert.equal(snapshots[0]?.pendingEvents?.length, 1);
+  assert.equal(snapshots[0]?.browserEvidenceClaim?.nextIndex, 1);
+  assert.equal(snapshots[0]?.chainState?.sequence, 1);
+  await queue.completeBrowserClaim();
+  assert.equal(identity.browserEvidenceClaim, undefined);
+  assert.equal(identity.pendingEvents?.length, 1);
 });
 
 test("an agent below the minimum version downloads a compliant signed update", async () => {

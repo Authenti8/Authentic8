@@ -27,8 +27,14 @@ export class AgentReleaseController {
   @Get("rules/windows")
   rules() { return releaseJson("WINDOWS_RULE_PACK_JSON"); }
 
+  @Get("rules/macos")
+  macosRules() { return releaseJson("MACOS_RULE_PACK_JSON"); }
+
   @Get("releases/windows")
   release() { return releaseJson("WINDOWS_RELEASE_MANIFEST_JSON"); }
+
+  @Get("releases/macos")
+  macosRelease() { return releaseJson("MACOS_RELEASE_MANIFEST_JSON"); }
 }
 
 function releaseJson(name: string) {

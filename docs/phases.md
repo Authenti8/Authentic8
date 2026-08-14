@@ -1349,6 +1349,15 @@ Unknown virtual device without supporting evidence:
 
 # Phase 21 — Candidate Chrome Extension
 
+## Implementation Status
+
+Implemented as a Manifest V3 candidate extension with local ID matching,
+managed signature configuration, active-profile instance identity, periodic
+health reporting, and privacy-filtered Chrome native messaging. The Windows
+native host spools only matched-extension and profile-health evidence for the
+enrolled verifier; full extension inventories, names, and permissions are not
+sent to the backend or recruiter.
+
 ## Feature
 
 Detect prohibited browser extensions and communicate with Authenti8 Verify.
@@ -1394,6 +1403,15 @@ Candidate extension
 ---
 
 # Phase 22 — macOS Candidate Agent
+
+## Implementation Status
+
+Implemented with macOS enrollment, Keychain-protected Ed25519 identity,
+normalized signed telemetry, permission-state reporting, and a native
+Swift/AppKit/CoreGraphics/Core Audio sensor. The release script fails closed
+unless an Apple signing identity and notarytool profile are supplied. Producing
+the distributable signed/notarized artifact therefore requires the production
+Apple credentials and macOS release runner.
 
 ## Feature
 
@@ -1493,6 +1511,13 @@ Ship signed and notarized package
 
 # Phase 23 — Cross-Platform Detection Abstraction
 
+## Implementation Status
+
+Implemented in the shared event-schema package. Windows, macOS, and Chrome use
+the same normalized evidence vocabulary while retaining platform-specific
+payload fields for internal rule evaluation. Recruiter-facing state is derived
+from validated normalized events rather than raw operating-system APIs.
+
 ## Feature
 
 Ensure Windows and macOS produce the same normalized evidence types.
@@ -1541,6 +1566,15 @@ RULE:
 ---
 
 # Phase 24 — Secure Telemetry Pipeline
+
+## Implementation Status
+
+Implemented with Ed25519 enrollment, canonical payload hashes, ordered event
+hash chains, immutable database ingestion, device/platform binding, timestamp
+windows, idempotent replay recovery, and encrypted-at-rest platform credential
+stores. Windows and macOS retain ordered offline queues and retry with bounded
+exponential backoff; the backend rejects modification, duplication, replay,
+chain gaps, and out-of-window evidence.
 
 ## Feature
 
@@ -1606,6 +1640,14 @@ WHEN connection restores:
 ---
 
 # Phase 25 — Monitoring Session Orchestrator
+
+## Implementation Status
+
+Implemented with five-second agent heartbeats, ten-second interruption
+detection, idempotent recovery, candidate/recruiter/authorized-window stop
+paths, recruiter workspace notifications, and coverage calculated separately
+from detection results. Migration `035_monitoring_orchestrator.sql` adds the
+durable interruption ledger and fail-closed monitoring health state.
 
 ## Feature
 

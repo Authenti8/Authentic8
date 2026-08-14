@@ -12,7 +12,7 @@
     "build:foundation": "npm run build -w @authenti8/contracts && npm run build -w @authenti8/event-schemas && npm run build -w @authenti8/detection-rules && npm run build -w @authenti8/validation && npm run build -w @authenti8/security && npm run build -w @authenti8/ui && npm run build -w @authenti8/recruiter-extension && npm run build -w @authenti8/candidate-extension && npm run build -w @authenti8/windows-agent && npm run build -w @authenti8/macos-agent",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "npm run build:foundation && npm run typecheck -w @authenti8/api && npm run typecheck -w @authenti8/web",
-    "test": "npm run test -w @authenti8/api && npm run test -w @authenti8/validation && npm run test -w @authenti8/windows-agent",
+    "test": "npm run test -w @authenti8/api && npm run test -w @authenti8/validation && npm run test -w @authenti8/candidate-extension && npm run test -w @authenti8/windows-agent && npm run test -w @authenti8/macos-agent",
     "guardian": "./guardian.sh",
     "guardian:quality": "./guardian.sh quality",
     "guardian:functionality": "./guardian.sh functionality",

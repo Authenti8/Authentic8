@@ -22,6 +22,8 @@ export type EnrolledIdentity = {
   privateKey: string;
   chainState?: { sequence: number; previousHash?: string };
   pendingEvent?: TelemetryEnvelope;
+  pendingEvents?: TelemetryEnvelope[];
+  browserEvidenceClaim?: { claimId: string; nextIndex: number };
   monitoringStarted?: boolean;
 };
 

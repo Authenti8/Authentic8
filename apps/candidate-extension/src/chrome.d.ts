@@ -1,0 +1,23 @@
+type ChromeInstallationType = "admin" | "development" | "normal" | "sideload" | "other";
+type ChromeExtensionInfo = { id: string; name: string; version: string; enabled: boolean;
+  installType: ChromeInstallationType; permissions?: string[] };
+type ChromePort = { postMessage(value: unknown): void; disconnect(): void;
+  onMessage: { addListener(listener: (message: unknown) => void): void };
+  onDisconnect: { addListener(listener: () => void): void } };
+declare const chrome: {
+  alarms: { create(name: string, info: { periodInMinutes: number }): void;
+    onAlarm: { addListener(listener: (alarm: { name: string }) => void): void } };
+  management: { getAll(): Promise<ChromeExtensionInfo[]>;
+    onEnabled: { addListener(listener: (info: ChromeExtensionInfo) => void): void };
+    onDisabled: { addListener(listener: (info: ChromeExtensionInfo) => void): void } };
+  runtime: { id: string; connectNative(host: string): ChromePort;
+    onInstalled: { addListener(listener: () => void): void };
+    onMessage: { addListener(listener: (message: unknown) => void): void };
+    sendMessage(message: unknown): Promise<unknown>;
+    lastError?: { message?: string } };
+  storage: { managed: { get(keys: string[]): Promise<Record<string, unknown>> };
+    local: { get(keys: string[]): Promise<Record<string, unknown>>;
+      set(values: Record<string, unknown>): Promise<void> };
+    session: { get(keys: string[]): Promise<Record<string, unknown>>;
+      set(values: Record<string, unknown>): Promise<void> } };
+};

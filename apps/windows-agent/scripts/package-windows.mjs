@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, readFileSync, readdirSync, rmSync,
+  writeFileSync } from "node:fs";
 import { resolve, win32 } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
@@ -15,6 +16,7 @@ const archive = resolve(release, `Authenti8Verify-${packageMetadata.version}.zip
 const installer = resolve(release, "Authenti8VerifySetup.exe");
 const nativeHost = resolve(release, "Authenti8VerifyNativeHost.exe");
 const nativeScripts = collectNativeScripts(resolve(root, "native"));
+assertReferencedScriptsEmbedded(nativeScripts, resolve(root, "src"));
 const context = releaseContext();
 
 rmSync(staging, { recursive: true, force: true });
@@ -38,6 +40,8 @@ signExecutable(executable);
 await build({ entryPoints: [resolve(root, "src/native-host-cli.ts")], bundle: true, platform: "node",
   format: "cjs", outfile: resolve(staging, "native-host.cjs"), define: {
     __AUTHENTI8_AGENT_VERSION__: JSON.stringify(packageMetadata.version),
+    __AUTHENTI8_NATIVE_SCRIPTS__: JSON.stringify(nativeScripts),
+    "import.meta.url": JSON.stringify(pathToFileURL(resolve(root, "src/powershell.ts")).href),
   } });
 await buildSeaExecutable(resolve(staging, "native-host.cjs"), nativeHost, "native-host");
 signExecutable(nativeHost);
@@ -144,7 +148,14 @@ function systemExecutable(name) {
 }
 
 function collectNativeScripts(directory) {
-  return Object.fromEntries(["apply-update.ps1", "audio-sensor.ps1", "credential-store.ps1",
-    "process-identity.ps1", "process-sensor.ps1", "signature-check.ps1", "window-sensor.ps1"]
+  return Object.fromEntries(readdirSync(directory).filter((name) => name.endsWith(".ps1")).sort()
     .map((name) => [name, readFileSync(resolve(directory, name)).toString("base64")]));
+}
+
+function assertReferencedScriptsEmbedded(scripts, sourceDirectory) {
+  const references = new Set(readdirSync(sourceDirectory).filter((name) => name.endsWith(".ts"))
+    .flatMap((name) => [...readFileSync(resolve(sourceDirectory, name), "utf8")
+      .matchAll(/["']([a-z0-9-]+\.ps1)["']/gi)].map((match) => match[1])));
+  const missing = [...references].filter((name) => !scripts[name]);
+  if (missing.length) throw new Error(`Native scripts are not embedded: ${missing.join(", ")}`);
 }

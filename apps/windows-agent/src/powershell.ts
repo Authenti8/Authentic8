@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const execute = promisify(execFile);
-const packaged = basename(process.execPath).toLowerCase() === "authenti8verify.exe";
+const packaged = ["authenti8verify.exe", "authenti8verifynativehost.exe"]
+  .includes(basename(process.execPath).toLowerCase());
 const nativeDirectory = packaged ? resolve(dirname(process.execPath), "native")
   : resolve(dirname(fileURLToPath(import.meta.url)), "../native");
 declare const __AUTHENTI8_NATIVE_SCRIPTS__: Readonly<Record<string, string>> | undefined;

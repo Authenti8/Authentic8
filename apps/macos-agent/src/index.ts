@@ -1,10 +1,4 @@
-import { telemetrySchemaVersion, type TelemetryEnvelope } from "@authenti8/event-schemas";
-
-export const macosAgentProtocol = {
-  platform: "MACOS",
-  telemetrySchemaVersion,
-} as const;
-
-export function eventSignature(event: TelemetryEnvelope) {
-  return event.signature;
-}
+export { MacosAgent } from "./macos-agent.js";
+export { parseActivationUrl, validateConfiguration } from "./config.js";
+export { matchMacosSnapshot } from "./matcher.js";
+export type { MacosAgentConfiguration, MacosSnapshot } from "./types.js";

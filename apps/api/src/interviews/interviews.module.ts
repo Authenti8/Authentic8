@@ -8,11 +8,12 @@ import { InterviewLifecycleService } from "./interview-lifecycle.service.js";
 import { InterviewMaintenanceController } from "./interview-maintenance.controller.js";
 import { AgentReleaseController, TelemetryController } from "./telemetry.controller.js";
 import { TelemetryService } from "./telemetry.service.js";
+import { MonitoringController } from "./monitoring.controller.js";
 
 @Module({
   imports: [AuthModule, SupabaseModule],
   controllers: [CandidateController, DeviceEnrollmentController, InterviewMaintenanceController,
-    AgentReleaseController, TelemetryController],
+    AgentReleaseController, TelemetryController, MonitoringController],
   providers: [DeviceEnrollmentService, InterviewLifecycleService, TelemetryService],
 })
 export class InterviewsModule {}

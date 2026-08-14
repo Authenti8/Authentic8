@@ -27,3 +27,22 @@ export type WindowsRulePack = {
   rules: readonly WindowsDetectionRule[];
   signature: string;
 };
+
+export type MacosDetectionRule = {
+  key: string;
+  family: string;
+  version: number;
+  enabled: boolean;
+  bundleIdentifiers: readonly string[];
+  teamIdentifiers: readonly string[];
+  executableSha256: readonly string[];
+  overlayRequired?: boolean;
+  virtualAudioNames?: readonly string[];
+};
+
+export type MacosRulePack = {
+  version: string;
+  expiresAt: string;
+  rules: readonly MacosDetectionRule[];
+  signature: string;
+};

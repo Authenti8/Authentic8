@@ -10,7 +10,8 @@ import { collectWindows } from "./window-sensor.js";
 import { matchSnapshot } from "./detection-matcher.js";
 import { verifyRulePack } from "./rule-pack-verifier.js";
 import { removeIdentity } from "./credential-store.js";
-import { saveIdentity } from "./credential-store.js";
+import { acknowledgeBrowserEvidence, claimBrowserEvidence } from "./browser-evidence-spool.js";
+import { TelemetryDelivery } from "./telemetry-delivery.js";
 
 export class WindowsAgent {
   private stopped = false;
@@ -35,17 +36,15 @@ export class WindowsAgent {
     const chain = new EventChain({ sessionId: identity.verificationSessionId,
       privateKey: identity.privateKey, agentVersion: this.config.agentVersion,
       rulePackVersion: this.config.rulePackVersion }, identity.chainState);
+    const delivery = new TelemetryDelivery(client, this.config.enrollmentToken, identity);
     const send = async (event: ReturnType<EventChain["create"]>) => {
-      identity.pendingEvent = event; identity.chainState = chain.state();
-      await saveIdentity(this.config.enrollmentToken, identity);
-      await client.post("agent/telemetry", event);
-      identity.pendingEvent = undefined;
-      if (event.eventType === "MONITORING_STARTED") identity.monitoringStarted = true;
-      await saveIdentity(this.config.enrollmentToken, identity);
+      identity.chainState = chain.state(); await delivery.enqueue(event); await delivery.flush();
     };
-    if (identity.pendingEvent) {
-      const terminal = await this.resumePending(client, identity);
-      if (terminal) { await removeIdentity(this.config.enrollmentToken); return; }
+    await delivery.flush(true);
+    if (identity.pendingEvents?.some((event) => event.eventType === "MONITORING_STOPPED")) {
+      await delivery.flushUntil(Date.now() + 30_000);
+      if (!identity.pendingEvents.length) await removeIdentity(this.config.enrollmentToken);
+      return;
     }
     await this.waitForEligibleStart(Date.parse(identity.eligibleStart), Date.parse(identity.eligibleEnd));
     if (this.stopped) return;
@@ -55,23 +54,18 @@ export class WindowsAgent {
     await this.refreshRulePack(chain);
     if (!identity.monitoringStarted) {
       await send(chain.create("MONITORING_STARTED", { deviceId: identity.deviceId }));
+      if (!await delivery.flushUntil(Date.now() + 30_000)) {
+        throw new Error("Monitoring start could not be acknowledged.");
+      }
     }
-    await this.monitor(chain, send, Date.parse(identity.eligibleEnd));
-    if (this.stopped) return;
-    await send(chain.create("MONITORING_STOPPED", { reason: "AUTHORIZED_STOP" }));
-    await removeIdentity(this.config.enrollmentToken);
+    await this.monitor(chain, send, delivery, identity, Date.parse(identity.eligibleEnd));
+    await send(chain.create("MONITORING_STOPPED",
+      { reason: this.stopped ? "CANDIDATE_ENDED" : "AUTHORIZED_STOP" }));
+    const delivered = await delivery.flushUntil(Date.now() + 5 * 60_000);
+    if (delivered) await removeIdentity(this.config.enrollmentToken);
   }
 
   stop() { this.stopped = true; }
-
-  private async resumePending(client: AgentHttpClient, identity: EnrolledIdentity) {
-    const event = identity.pendingEvent!;
-    await client.post("agent/telemetry", event);
-    identity.pendingEvent = undefined;
-    if (event.eventType === "MONITORING_STARTED") identity.monitoringStarted = true;
-    await saveIdentity(this.config.enrollmentToken, identity);
-    return event.eventType === "MONITORING_STOPPED";
-  }
 
   private async waitForEligibleStart(eligibleStart: number, eligibleEnd: number) {
     while (!this.stopped && Date.now() < eligibleStart && Date.now() < eligibleEnd) {
@@ -93,18 +87,35 @@ export class WindowsAgent {
     this.ruleRefreshAt = refreshAt;
   }
 
-  private async monitor(chain: EventChain, send: Sender, eligibleEnd: number) {
+  private async monitor(chain: EventChain, send: Sender, delivery: TelemetryDelivery,
+    identity: EnrolledIdentity, eligibleEnd: number) {
     const intervals = this.config.pollIntervals ?? {};
     const collectionDeadline = eligibleEnd;
     while (!this.stopped && Date.now() < collectionDeadline) {
       await this.refreshRulePack(chain);
       await this.collectAndSend(chain, send, intervals, collectionDeadline);
+      await this.transferBrowserEvidence(chain, delivery, identity, collectionDeadline);
       if (Date.now() < collectionDeadline && Date.now() >= this.scanAt.heartbeat) {
         await send(chain.create("HEARTBEAT", { status: "MONITORING_ACTIVE" }));
         this.scanAt.heartbeat = Date.now() + 5_000;
       }
       await delay(500);
     }
+  }
+
+  private async transferBrowserEvidence(chain: EventChain, delivery: TelemetryDelivery,
+    identity: EnrolledIdentity, deadline: number) {
+    const claim = await claimBrowserEvidence();
+    if (!claim) return;
+    const prior = identity.browserEvidenceClaim;
+    const start = prior?.claimId === claim.claimId ? prior.nextIndex : 0;
+    for (let index = start; index < claim.evidence.length && Date.now() < deadline; index += 1) {
+      const evidence = claim.evidence[index]!;
+      const event = chain.create(evidence.eventType, evidence.payload);
+      await delivery.enqueueClaimed(event, claim.claimId, index + 1, chain.state());
+    }
+    if (identity.browserEvidenceClaim?.nextIndex !== claim.evidence.length) return;
+    if (await acknowledgeBrowserEvidence(claim.claimId)) await delivery.completeBrowserClaim();
   }
 
   private async collectAndSend(
@@ -133,15 +144,19 @@ export class WindowsAgent {
     }
     for (const payload of processChanges(this.snapshot.processes, processes)) {
       if (Date.now() >= deadline) break;
-      await send(chain.create("PROCESS_OBSERVED", { ...payload }));
+      const eventType = payload.change === "STARTED" ? "PROCESS_STARTED"
+        : payload.change === "STOPPED" ? "PROCESS_STOPPED" : "PROCESS_OBSERVED";
+      await send(chain.create(eventType, { ...payload }));
     }
     for (const payload of windowChanges(this.snapshot.windows, windows)) {
       if (Date.now() >= deadline) break;
-      await send(chain.create("WINDOW_OBSERVED", { ...payload }));
+      const existed = this.snapshot.windows.some((item) => item.windowIdHash === payload.windowIdHash);
+      await send(chain.create(existed ? "WINDOW_CHANGED" : "WINDOW_CREATED", { ...payload }));
     }
     for (const payload of audioChanges(this.snapshot.audioEndpoints, audioEndpoints)) {
       if (Date.now() >= deadline) break;
-      await send(chain.create("AUDIO_ENDPOINT_OBSERVED", { ...payload }));
+      const eventType = payload.change === "ADDED" ? "AUDIO_DEVICE_ADDED" : "AUDIO_ROUTE_CHANGED";
+      await send(chain.create(eventType, { ...payload }));
     }
     this.snapshot = { processes, windows, audioEndpoints };
     this.advanceSchedule(now, intervals);
@@ -160,7 +175,9 @@ export class WindowsAgent {
       const key = JSON.stringify(signal);
       if (this.emittedSignals.has(key)) continue;
       this.emittedSignals.add(key);
-      await send(chain.create("DETECTION_SIGNAL", { ...signal }));
+      const eventType = signal.confidence === "HIGH" && signal.activeUseEvidence.includes("OVERLAY")
+        ? "HIDDEN_OVERLAY_MATCH" : "KNOWN_PROCESS_MATCH";
+      await send(chain.create(eventType, { ...signal }));
     }
   }
 }

@@ -24,6 +24,9 @@ export class InterviewLifecycleService {
     const lifecycle = await this.supabase.rpc<Record<string, number>>(
       "authenti8_orchestrate_interviews", {},
     );
+    const monitoring = await this.supabase.rpc<Record<string, number>>(
+      "authenti8_orchestrate_monitoring", {},
+    );
     let delivered = 0;
     let failed = 0;
     while (Date.now() + DELIVERY_RUNTIME_RESERVE_MS < deadline) {
@@ -32,7 +35,7 @@ export class InterviewLifecycleService {
       if (result === "delivered") delivered += 1;
       if (result === "failed") failed += 1;
     }
-    return { ...lifecycle, delivered, failed };
+    return { ...lifecycle, ...monitoring, delivered, failed };
   }
 
   verification(token: string) {
@@ -58,6 +61,14 @@ export class InterviewLifecycleService {
     }
     return { ...result, enrollmentToken,
       enrollmentExpiresAt: enrollment.expiresAt };
+  }
+
+  endCandidateMonitoring(token: string) {
+    return this.supabase.rpc("authenti8_candidate_end_monitoring", { tokenHash: hashToken(token) });
+  }
+
+  endRecruiterMonitoring(userId: string, interviewId: string) {
+    return this.supabase.rpc("authenti8_recruiter_end_monitoring", { userId, interviewId });
   }
 
   private async deliverNext() {

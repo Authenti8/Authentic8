@@ -57,3 +57,6 @@ pnpm-debug.log*
 # Native agent packaging output
 apps/windows-agent/.package/
 apps/windows-agent/release/
+apps/macos-agent/.package/
+apps/macos-agent/release/
+apps/macos-agent/native/.build/

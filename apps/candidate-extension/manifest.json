@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Authenti8 Candidate Verify",
+  "version": "0.1.0",
+  "description": "Consented browser integrity verification for Authenti8 interviews.",
+  "permissions": ["alarms", "management", "nativeMessaging", "storage"],
+  "host_permissions": ["https://meet.google.com/*"],
+  "background": { "service_worker": "dist/background.js", "type": "module" },
+  "content_scripts": [{
+    "matches": ["https://meet.google.com/*"],
+    "js": ["dist/meet-presence.js"],
+    "run_at": "document_start"
+  }],
+  "action": { "default_title": "Authenti8 Verify" }
+}

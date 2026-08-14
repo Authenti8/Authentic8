@@ -3,6 +3,7 @@ import type { Request } from "express";
 import { RateLimiterService } from "../auth/rate-limiter.service.js";
 import { DeviceEnrollmentService } from "./device-enrollment.service.js";
 import type { DeviceEnrollmentInput } from "./enrollment.types.js";
+import { isSupportedAgentVersion } from "./agent-version.js";
 
 @Controller("agent/enrollment")
 export class DeviceEnrollmentController {
@@ -44,8 +45,10 @@ function validatedInput(body: Partial<DeviceEnrollmentInput>) {
   const token = requireToken(body?.token);
   const platformVersion = body.platformVersion ?? "";
   const agentVersion = body.agentVersion ?? "";
-  if (!body.publicKey || !body.challengeSignature || body.platform !== "WINDOWS"
+  if (!body.publicKey || !body.challengeSignature
+    || !["WINDOWS", "MACOS"].includes(body.platform ?? "")
     || !validLabel(platformVersion, 100) || !validLabel(agentVersion, 50)
+    || !isSupportedAgentVersion(body.platform as "WINDOWS" | "MACOS", agentVersion)
     || (body.deviceName !== undefined && !validLabel(body.deviceName, 200))) {
     throw new BadRequestException("Enrollment details are invalid.");
   }

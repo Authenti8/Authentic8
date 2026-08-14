@@ -5,9 +5,21 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": { "authenti8-verify-macos": "dist/cli.js" },
   "scripts": {
-    "prebuild": "npm run build -w @authenti8/event-schemas",
-    "build": "tsc -p tsconfig.json"
+    "prebuild": "npm run build -w @authenti8/event-schemas && npm run build -w @authenti8/security && npm run build -w @authenti8/detection-rules",
+    "build": "tsc -p tsconfig.json",
+    "package:macos": "node scripts/package-macos.mjs",
+    "pretest": "node -e \"require('node:fs').rmSync('.test-dist',{recursive:true,force:true})\"",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/test/*.test.js"
   },
-  "dependencies": { "@authenti8/event-schemas": "0.1.0" }
+  "dependencies": {
+    "@authenti8/detection-rules": "0.1.0",
+    "@authenti8/event-schemas": "0.1.0",
+    "@authenti8/security": "0.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6"
+  }
 }
