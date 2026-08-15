@@ -169,6 +169,10 @@ async function assertMonitoredInterviewFrozen(
     events: [event], syncToken: "monitored-before",
   });
   const interviewId = await currentInterviewIdByEvent(database, organizationId, event.eventId);
+  await database.query(
+    "UPDATE interviews SET status = 'DETECTED' WHERE id = $1 AND status = 'EXCLUDED'",
+    [interviewId],
+  );
   await advanceToDeviceConnecting(database, interviewId);
   await database.query(`UPDATE interviews SET status = 'MONITORING_ACTIVE',
     monitoring_started_at = now() WHERE id = $1`, [interviewId]);
@@ -263,6 +267,10 @@ async function assertDashboardReports(
   const report = await database.query<{ id: string }>(`INSERT INTO reports(
     interview_id, detection_result, monitoring_status, coverage_percentage, snapshot)
     VALUES ($1, 'CONFIRMED', 'COMPLETE', 100, '{}') RETURNING id`, [interviewId]);
+  await database.query(
+    "UPDATE interviews SET status = 'DETECTED' WHERE id = $1 AND status = 'EXCLUDED'",
+    [interviewId],
+  );
   await advanceToDeviceConnecting(database, interviewId);
   for (const status of ["MONITORING_ACTIVE", "MEETING_COMPLETED",
     "REPORT_PROCESSING", "REPORT_READY"]) {

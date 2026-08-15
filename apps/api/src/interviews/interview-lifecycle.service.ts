@@ -27,6 +27,9 @@ export class InterviewLifecycleService {
     const monitoring = await this.supabase.rpc<Record<string, number>>(
       "authenti8_orchestrate_monitoring", {},
     );
+    const reports = await this.supabase.rpc<Record<string, number>>(
+      "authenti8_process_reports", {},
+    );
     let delivered = 0;
     let failed = 0;
     while (Date.now() + DELIVERY_RUNTIME_RESERVE_MS < deadline) {
@@ -35,7 +38,7 @@ export class InterviewLifecycleService {
       if (result === "delivered") delivered += 1;
       if (result === "failed") failed += 1;
     }
-    return { ...lifecycle, ...monitoring, delivered, failed };
+    return { ...lifecycle, ...monitoring, ...reports, delivered, failed };
   }
 
   verification(token: string) {

@@ -17,6 +17,8 @@ export type OutboxPayload = {
   interviewId?: string;
 };
 type OutboxRow = OutboxPayload & { id: string; attempts: number };
+type NotificationOutboxRow = { id: string; attempts: number; recipient: string;
+  title: string; message: string; linkPath: string | null };
 const smtpTimeouts = {
   connectionTimeout: 5_000, greetingTimeout: 5_000,
   socketTimeout: 25_000, dnsTimeout: 5_000,
@@ -63,12 +65,67 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   async drainPending(limit = 10) {
-    return this.drainOutbox(limit);
+    const [links, notifications] = await Promise.all([
+      this.drainOutbox(limit), this.drainNotificationOutbox(limit),
+    ]);
+    return links + notifications;
+  }
+
+  private async drainNotificationOutbox(limit: number) {
+    const claims = await Promise.allSettled(Array.from({ length: limit }, () =>
+      this.supabase.rpc<NotificationOutboxRow | null>("authenti8_claim_notification_email")));
+    const messages = claims.flatMap((claim) => claim.status === "fulfilled" && claim.value
+      ? [claim.value] : []);
+    const deliveries = await Promise.allSettled(messages.map((message) =>
+      this.deliverNotification(message)));
+    for (const delivery of deliveries) {
+      if (delivery.status === "rejected") this.logFailure("notification", delivery.reason);
+    }
+    return messages.length;
+  }
+
+  private async deliverNotification(message: NotificationOutboxRow) {
+    const stopLeaseRenewal = this.startNotificationLeaseRenewal(message);
+    try {
+      await this.sendNotification(message);
+      await this.supabase.rpc("authenti8_complete_notification_email", claimInput(message));
+    } catch (error) {
+      await this.supabase.rpc("authenti8_fail_notification_email", {
+        ...claimInput(message), error: error instanceof Error ? error.message : "Delivery failed",
+      });
+      throw error;
+    } finally { stopLeaseRenewal(); }
+  }
+
+  private startNotificationLeaseRenewal(message: NotificationOutboxRow) {
+    const timer = setInterval(() => {
+      void this.supabase.rpc("authenti8_renew_notification_email", claimInput(message))
+        .catch((error: unknown) => this.logFailure("notification lease", error));
+    }, 10_000);
+    timer.unref();
+    return () => clearInterval(timer);
+  }
+
+  private async sendNotification(message: NotificationOutboxRow) {
+    if (!this.config.smtp.host) {
+      if (this.config.isProduction) throw new ServiceUnavailableException("Email delivery is not configured.");
+      return;
+    }
+    const transport = nodemailer.createTransport({
+      host: this.config.smtp.host, port: this.config.smtp.port, secure: this.config.smtp.secure,
+      ...smtpTimeouts, auth: this.config.smtp.user
+        ? { user: this.config.smtp.user, pass: this.config.smtp.password } : undefined,
+    });
+    const url = new URL(message.linkPath ?? "/dashboard", this.config.appOrigin).toString();
+    await transport.sendMail({ from: this.config.smtp.from, to: message.recipient,
+      subject: `${message.title} · Authenti8`,
+      text: `${message.message}\n\nOpen Authenti8: ${url}`,
+      html: `<p>${escapeHtml(message.message)}</p><p><a href="${url}">Open Authenti8</a></p>` });
   }
 
   private scheduleDrain() {
     if (this.drainInFlight) return;
-    this.drainInFlight = this.drainOutbox()
+    this.drainInFlight = this.drainPending()
       .then(() => undefined)
       .catch((error: unknown) => this.logFailure("outbox", error))
       .finally(() => { this.drainInFlight = undefined; });
@@ -191,6 +248,11 @@ function mailContext(kind: MailKind, recipient: string) {
   return `${kind}:${recipient}`;
 }
 
-function claimInput(message: OutboxRow) {
+function claimInput(message: { id: string; attempts: number }) {
   return { id: message.id, attempts: message.attempts };
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }

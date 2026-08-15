@@ -1,8 +1,9 @@
-import type { BillingSummary, PlanKey } from "@authenti8/contracts";
+import type { BillingHistory, BillingSummary, PlanKey } from "@authenti8/contracts";
 import { Check, Mail } from "lucide-react";
 import { BillingPortalButton } from "@/components/dashboard/billing-portal-button";
 import { CheckoutButton } from "@/components/dashboard/checkout-button";
 import { ExtraCreditPurchase } from "@/components/dashboard/extra-credit-purchase";
+import { InvoiceButton } from "@/components/dashboard/invoice-button";
 import { getServerApi, requireSession } from "@/lib/server-api";
 
 const plans = [
@@ -18,8 +19,9 @@ const plans = [
 ] as const;
 
 export default async function SubscriptionPage() {
-  const [billing, session] = await Promise.all([
-    getServerApi<BillingSummary>("/billing"), requireSession(),
+  const [billing, history, session] = await Promise.all([
+    getServerApi<BillingSummary>("/billing"), getServerApi<BillingHistory>("/billing/history"),
+    requireSession(),
   ]);
   const canManage = ["OWNER", "ADMIN"].includes(session.organization?.role ?? "");
   const billingActive = ["ACTIVE", "TRIALING"].includes(billing.status);
@@ -35,8 +37,37 @@ export default async function SubscriptionPage() {
       {canManage && billingActive && supportsExtraCredits ? <ExtraCreditPurchase /> : null}
       {canManage && professionalRecovery ? <BillingRecovery /> : null}
       {!canManage ? <BillingReadOnly /> : null}
+      <section className="billing-capacity"><span>Current billing period</span>
+        <strong>{billing.includedUsed} of {billing.allowance} included interviews used</strong>
+        <small>Renews {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(billing.periodEnd))}</small>
+      </section>
+      <BillingActivity canDownloadInvoices={canManage}
+        canOpenPortal={canManage && billing.plan === "PROFESSIONAL"} history={history} />
     </div>
   );
+}
+
+function BillingActivity({ history, canOpenPortal, canDownloadInvoices }: {
+  history: BillingHistory; canOpenPortal: boolean; canDownloadInvoices: boolean;
+}) {
+  return <section className="billing-history"><div className="card-heading"><span>Transactions</span>
+    <h2>Payment and credit history</h2><p>Credits are added only after a verified provider webhook.</p>
+    </div>{history.payments.length ? <div className="billing-history-rows">{history.payments.map((payment) =>
+      <div key={payment.id}><span><strong>{payment.purpose.replaceAll("_", " ")}</strong>
+        <small>{new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(payment.createdAt))}</small>
+      </span><b>{payment.amountMinor === null ? "Verified" : `${payment.currency || ""} ${(payment.amountMinor / 100).toFixed(2)}`}</b>
+        {canDownloadInvoices ? <InvoiceButton paymentId={payment.id} /> : null}</div>)}</div>
+      : <p>No completed payments yet.</p>}
+    <div className="card-heading"><span>Credit ledger</span><h2>Credit activity</h2></div>
+    {history.transactions.length ? <div className="billing-history-rows">
+      {history.transactions.map((transaction) => <div key={transaction.id}><span>
+        <strong>{transaction.kind.replaceAll("_", " ")}</strong><small>
+          {new Intl.DateTimeFormat("en", { dateStyle: "medium" })
+            .format(new Date(transaction.createdAt))}</small></span>
+        <b>{transaction.amount > 0 ? "+" : ""}{transaction.amount} credits</b></div>)}</div>
+      : <p>No credit activity yet.</p>}
+    {canOpenPortal ? <div className="invoice-action"><p>Download provider-issued invoices and receipts from the secure billing portal.</p>
+      <BillingPortalButton label="Open invoices" /></div> : null}</section>;
 }
 
 function PlanCard({ plan, billing, canManage }: {

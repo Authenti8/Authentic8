@@ -2028,6 +2028,11 @@ Monitoring coverage: 100%
 
 # Phase 31 — Meetings Tab
 
+## Implementation Status
+
+Implemented with organization-scoped indexed filters, compound cursor pagination, candidate and
+interviewer search, summary-only list responses, and a separate immutable meeting-detail read.
+
 ## Feature
 
 Display automatically protected interviews and their results.
@@ -2072,6 +2077,11 @@ WHEN row opened:
 ---
 
 # Phase 32 — Immutable Logs and Evidence Storage
+
+## Implementation Status
+
+Implemented with append-only mutation guards, retention-only deletion escape hatches, hashed
+recruiter-readable events, source references, restricted raw telemetry, and refresh-safe reads.
 
 ## Feature
 
@@ -2125,6 +2135,11 @@ NEVER:
 ---
 
 # Phase 33 — Final Integrity Report
+
+## Implementation Status
+
+Implemented with a delayed retryable report queue, immutable versioned snapshots, captured rule-pack
+version, monitoring and incident summaries, report-ready notification, and print-identical PDF output.
 
 ## Feature
 
@@ -2188,6 +2203,11 @@ Monitoring interruptions: None
 
 # Phase 34 — Buy Extra Links Tab
 
+## Implementation Status
+
+Implemented on the existing webhook-authoritative Dodo checkout and reversal ledger, now including
+organization-scoped transaction/payment history and provider invoice access for managed plans.
+
 ## Feature
 
 Allow the organization to purchase additional interview credits.
@@ -2220,6 +2240,11 @@ WHEN package selected:
 ---
 
 # Phase 35 — Notifications
+
+## Implementation Status
+
+Implemented with deterministic database deduplication, severity and interview deep links, dashboard
+history, critical/warning email fan-out, leased retries, and immediate confirmed-detection alerts.
 
 ## Feature
 

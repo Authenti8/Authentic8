@@ -25,6 +25,7 @@ test("the lifecycle drain clears more than ten concurrently due deliveries", asy
       if (name === "authenti8_orchestrate_monitoring") {
         return { interruptionsOpened: 0, sessionsStopped: 0 };
       }
+      if (name === "authenti8_process_reports") return { processed: 0, failed: 0 };
       if (name === "authenti8_claim_verification_delivery") return jobs[claimIndex++] ?? null;
       if (name === "authenti8_complete_verification_delivery") return { completed: true };
       throw new Error(`Unexpected RPC: ${name}`);

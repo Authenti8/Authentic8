@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Get, Headers, HttpCode, Inject, Post, RawBodyRequest, Req,
+  BadRequestException, Body, Controller, Get, Headers, HttpCode, Inject, Param, Post, RawBodyRequest, Req,
   UnauthorizedException, UseGuards,
 } from "@nestjs/common";
 import type { Request } from "express";
@@ -10,18 +10,35 @@ import { BillingService, type DodoEvent } from "./billing.service.js";
 import { CreateCheckoutDto } from "./billing.dto.js";
 import { dodoWebhookId, verifyDodoWebhook } from "./dodo-webhook.js";
 import { BillingWebhookWorker } from "./billing-webhook-worker.service.js";
+import { BillingInvoiceService } from "./billing-invoice.service.js";
 
 @Controller("billing")
 export class BillingController {
   constructor(
     @Inject(BillingService) private readonly billing: BillingService,
     @Inject(BillingWebhookWorker) private readonly webhooks: BillingWebhookWorker,
+    @Inject(BillingInvoiceService) private readonly invoices: BillingInvoiceService,
   ) {}
 
   @Get()
   @UseGuards(SessionGuard)
   summary(@Req() request: AuthenticatedRequest) {
     return this.billing.summary(request.session!.userId);
+  }
+
+  @Get("history")
+  @UseGuards(SessionGuard)
+  history(@Req() request: AuthenticatedRequest) {
+    return this.billing.history(request.session!.userId);
+  }
+
+  @Get("payments/:paymentId/invoice")
+  @UseGuards(SessionGuard)
+  invoice(@Req() request: AuthenticatedRequest, @Param("paymentId") paymentId: string) {
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(paymentId)) {
+      throw new BadRequestException("Invalid payment identifier.");
+    }
+    return this.invoices.invoice(request.session!.userId, paymentId);
   }
 
   @Post("checkout")

@@ -43,6 +43,7 @@ export type BillingSummary = {
   allowance: number;
   balance: number;
   used: number;
+  includedUsed: number;
   periodStart: string;
   periodEnd: string;
   cancelAtPeriodEnd: boolean;
@@ -77,7 +78,9 @@ export type IntegrationSummary = {
 export type InterviewSummary = {
   id: string;
   title: string;
+  candidateName?: string | null;
   candidateEmail: string;
+  interviewerEmail?: string;
   scheduledStart: string;
   scheduledEnd: string;
   status: string;
@@ -87,6 +90,43 @@ export type InterviewSummary = {
   classificationReason: string | null;
   consentStatus: string;
   verificationDeliveryStatus: "NOT_SCHEDULED" | "SCHEDULED" | "QUEUED" | "SENT" | "FAILED";
+  detectionResult?: string | null;
+  coveragePercentage?: number | null;
+  reportId?: string | null;
+};
+
+export type MeetingsPage = { items: InterviewSummary[]; nextCursor: string | null };
+export type RecruiterTimelineEvent = {
+  sequence: number; kind: string; message: string; occurredAt: string; integrityHash: string;
+};
+export type IntegrityReportSnapshot = {
+  id: string; version: number; generatedAt: string;
+  candidate: { name: string | null; email: string };
+  interviewTitle: string; interviewer: string; scheduledStart: string; scheduledEnd: string;
+  durationSeconds: number; consent: { status: string; version: string | null;
+    acceptedAt: string | null };
+  device: { platform: string | null; platformVersion: string | null; agentVersion: string | null };
+  detectionResult: string; monitoringCoverage: number;
+  interruptions: Array<{ startedAt: string; endedAt: string | null; reason: string }>;
+  confirmedIncidents: Array<{ id: string; ruleKey: string; confidence: string;
+    occurredAt: string; rulePackVersion: string }>;
+  timeline: Array<{ kind: string; message: string; occurredAt: string; integrityHash: string }>;
+  rulePackVersion: string; rulePackVersions?: string[]; disclaimer: string;
+};
+export type MeetingDetail = {
+  interview: { id: string; title: string; candidateName: string | null; candidateEmail: string;
+    interviewerEmail: string; scheduledStart: string; scheduledEnd: string; status: string;
+    detectionResult: string | null; coveragePercentage: number | null; consentStatus: string };
+  timeline: RecruiterTimelineEvent[]; report: IntegrityReportSnapshot | null;
+};
+export type WorkspaceNotification = { id: string; kind: string; title: string; message: string;
+  severity: "INFO" | "WARNING" | "CRITICAL"; linkPath: string | null;
+  readAt: string | null; createdAt: string };
+export type BillingHistory = {
+  transactions: Array<{ id: string; amount: number; kind: string; referenceId: string | null;
+    createdAt: string }>;
+  payments: Array<{ id: string; purpose: string; quantity: number; amountMinor: number | null;
+    currency: string | null; createdAt: string }>;
 };
 
 export type CandidateVerification = {

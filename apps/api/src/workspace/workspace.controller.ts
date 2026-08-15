@@ -1,8 +1,9 @@
 import {
-  Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Post, Req,
+  BadRequestException, Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Post, Query, Req,
   UnauthorizedException, UseGuards,
 } from "@nestjs/common";
-import type { DashboardOverview, InterviewSummary } from "@authenti8/contracts";
+import type { DashboardOverview, MeetingDetail, MeetingsPage,
+  WorkspaceNotification } from "@authenti8/contracts";
 import type { AuthenticatedRequest } from "../auth/auth.types.js";
 import { validBearerToken } from "../auth/bearer.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -22,8 +23,29 @@ export class WorkspaceController {
   }
 
   @Get("meetings")
-  meetings(@Req() request: AuthenticatedRequest) {
-    return this.supabase.rpc<InterviewSummary[]>("authenti8_list_interviews", {
+  async meetings(@Req() request: AuthenticatedRequest,
+    @Query() query: Record<string, string | undefined>) {
+    const result = await this.supabase.rpc<MeetingsPage & { invalid?: boolean }>(
+      "authenti8_meetings_page", {
+        userId: request.session!.userId, ...meetingQuery(query),
+      });
+    if (result.invalid) throw new BadRequestException("Invalid meeting filters.");
+    return result;
+  }
+
+  @Get("meetings/:id")
+  async meeting(@Req() request: AuthenticatedRequest,
+    @Param("id", ParseUUIDPipe) interviewId: string) {
+    const result = await this.supabase.rpc<MeetingDetail | null>("authenti8_meeting_detail", {
+      userId: request.session!.userId, interviewId,
+    });
+    if (!result) throw new BadRequestException("Meeting is unavailable.");
+    return result;
+  }
+
+  @Get("notifications")
+  notifications(@Req() request: AuthenticatedRequest) {
+    return this.supabase.rpc<WorkspaceNotification[]>("authenti8_notifications", {
       userId: request.session!.userId,
     });
   }
@@ -35,6 +57,42 @@ export class WorkspaceController {
     });
   }
 
+}
+
+const meetingStatuses = new Set(["UPCOMING", "LIVE", "COMPLETED", "CONFIRMED",
+  "NOT_DETECTED", "UNABLE_TO_VERIFY", "CANCELLED"]);
+
+function meetingQuery(query: Record<string, string | undefined>) {
+  const status = query.status?.toUpperCase();
+  if (status && !meetingStatuses.has(status)) throw new BadRequestException("Invalid status filter.");
+  return { status, from: query.from, to: query.to, interviewer: clean(query.interviewer, 320),
+    candidate: clean(query.candidate, 200), limit: meetingLimit(query.limit),
+    ...decodeMeetingCursor(query.cursor) };
+}
+
+function meetingLimit(value: string | undefined) {
+  if (value === undefined) return undefined;
+  if (!/^[1-9][0-9]{0,2}$/.test(value)) {
+    throw new BadRequestException("Meeting limit must be an integer between 1 and 100.");
+  }
+  const limit = Number(value);
+  if (limit > 100) throw new BadRequestException("Meeting limit must be an integer between 1 and 100.");
+  return limit;
+}
+
+function clean(value: string | undefined, maximum: number) {
+  const result = value?.trim();
+  if (result && result.length > maximum) throw new BadRequestException("Meeting filter is too long.");
+  return result;
+}
+
+function decodeMeetingCursor(cursor: string | undefined) {
+  if (!cursor) return {};
+  try {
+    const [cursorStart, cursorId, extra] = Buffer.from(cursor, "base64").toString("utf8").split("|");
+    if (!cursorStart || !cursorId || extra || !/^[0-9a-f-]{36}$/i.test(cursorId)) throw new Error();
+    return { cursorStart, cursorId };
+  } catch { throw new BadRequestException("Invalid meeting cursor."); }
 }
 
 @Controller("internal/workspace")

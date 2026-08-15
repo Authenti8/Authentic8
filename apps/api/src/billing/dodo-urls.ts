@@ -17,6 +17,16 @@ export function assertDodoPortalUrl(value: string) {
   assertDodoUrl(value, PORTAL_HOSTS, "portal");
 }
 
+export function assertDodoInvoiceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password || url.port
+      || !(url.hostname === "dodopayments.com" || url.hostname.endsWith(".dodopayments.com"))) {
+      throw new Error("Untrusted invoice URL");
+    }
+  } catch { throw new Error("Invalid Dodo invoice URL"); }
+}
+
 function assertDodoUrl(value: string, hosts: ReadonlySet<string>, label: string) {
   try {
     const url = new URL(value);

@@ -31,7 +31,7 @@ export default async function DashboardPage() {
 }
 
 function RecentReports({ reports }: { reports: DashboardOverview["recentReports"] }) {
-  return <section className="recent-reports"><div className="card-heading"><span>Latest evidence</span><h2>Recent reports</h2></div>{reports.map((report) => <Link href={`/dashboard/meetings#${report.interviewId}`} key={report.interviewId}><span><strong>{report.title}</strong><small><LocalDateTime display="date-time" value={report.generatedAt} /></small></span><b>{report.result.replaceAll("_", " ")}</b><ArrowRight size={14} /></Link>)}</section>;
+  return <section className="recent-reports"><div className="card-heading"><span>Latest evidence</span><h2>Recent reports</h2></div>{reports.map((report) => <Link href={`/dashboard/meetings/${report.interviewId}`} key={report.interviewId}><span><strong>{report.title}</strong><small><LocalDateTime display="date-time" value={report.generatedAt} /></small></span><b>{report.result.replaceAll("_", " ")}</b><ArrowRight size={14} /></Link>)}</section>;
 }
 
 function OverviewHero({ firstName, workspace, overview, integrationConnected }: {

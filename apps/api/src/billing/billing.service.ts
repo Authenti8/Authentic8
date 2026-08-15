@@ -1,5 +1,5 @@
 import { BadGatewayException, BadRequestException, Inject, Injectable, Logger } from "@nestjs/common";
-import type { BillingSummary } from "@authenti8/contracts";
+import type { BillingHistory, BillingSummary } from "@authenti8/contracts";
 import { loadConfig } from "../config.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import type { CreateCheckoutDto } from "./billing.dto.js";
@@ -23,6 +23,10 @@ export class BillingService {
   async summary(userId: string) {
     await this.reconcilePendingCheckout(userId);
     return this.supabase.rpc<BillingSummary>("authenti8_billing_summary", { userId });
+  }
+
+  history(userId: string) {
+    return this.supabase.rpc<BillingHistory>("authenti8_billing_history", { userId });
   }
 
   async createCheckout(userId: string, input: CreateCheckoutDto) {
