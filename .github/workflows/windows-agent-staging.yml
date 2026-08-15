@@ -1,0 +1,204 @@
+name: Windows Agent Staging Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-agent-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    environment: staging
+    env:
+      AUTHENTI8_BUILD_CHANNEL: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+
+      - name: Validate staging configuration
+        shell: pwsh
+        env:
+          AUTHENTI8_API_ORIGIN: ${{ secrets.AUTHENTI8_API_ORIGIN }}
+          AUTHENTI8_RULE_PACK_PUBLIC_KEY: ${{ secrets.AUTHENTI8_RULE_PACK_PUBLIC_KEY }}
+          AUTHENTI8_UPDATE_PUBLIC_KEY: ${{ secrets.AUTHENTI8_UPDATE_PUBLIC_KEY }}
+          AUTHENTI8_CHROME_EXTENSION_ID: ${{ secrets.AUTHENTI8_CHROME_EXTENSION_ID }}
+          WINDOWS_STAGING_CERT_PFX_BASE64: ${{ secrets.WINDOWS_STAGING_CERT_PFX_BASE64 }}
+          WINDOWS_STAGING_CERT_PASSWORD: ${{ secrets.WINDOWS_STAGING_CERT_PASSWORD }}
+          WINDOWS_STAGING_ARTIFACT_PASSWORD: ${{ secrets.WINDOWS_STAGING_ARTIFACT_PASSWORD }}
+          WINDOWS_STAGING_CERT_SHA256: ${{ vars.WINDOWS_STAGING_CERT_SHA256 }}
+        run: |
+          $required = @(
+            "AUTHENTI8_API_ORIGIN",
+            "AUTHENTI8_RULE_PACK_PUBLIC_KEY",
+            "AUTHENTI8_UPDATE_PUBLIC_KEY",
+            "AUTHENTI8_CHROME_EXTENSION_ID",
+            "WINDOWS_STAGING_CERT_PFX_BASE64",
+            "WINDOWS_STAGING_CERT_PASSWORD",
+            "WINDOWS_STAGING_ARTIFACT_PASSWORD",
+            "WINDOWS_STAGING_CERT_SHA256"
+          )
+          foreach ($name in $required) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if ([string]::IsNullOrWhiteSpace($value)) { throw "$name is required." }
+          }
+          if ($env:AUTHENTI8_API_ORIGIN -notmatch '^https://[^/]+$') {
+            throw "AUTHENTI8_API_ORIGIN must be an HTTPS origin without a path."
+          }
+          if ($env:AUTHENTI8_CHROME_EXTENSION_ID -notmatch '^[a-p]{32}$') {
+            throw "AUTHENTI8_CHROME_EXTENSION_ID is invalid."
+          }
+          if ($env:WINDOWS_STAGING_ARTIFACT_PASSWORD.Length -lt 20) {
+            throw "WINDOWS_STAGING_ARTIFACT_PASSWORD must contain at least 20 characters."
+          }
+          if ($env:WINDOWS_STAGING_CERT_SHA256 -notmatch '^[a-fA-F0-9]{64}$') {
+            throw "WINDOWS_STAGING_CERT_SHA256 must be a SHA-256 certificate fingerprint."
+          }
+          node -e '
+            const { createPublicKey } = require("node:crypto");
+            const names = ["AUTHENTI8_RULE_PACK_PUBLIC_KEY", "AUTHENTI8_UPDATE_PUBLIC_KEY"];
+            const encoded = names.map((name) => process.env[name]);
+            const keys = encoded.map((value, index) => {
+              if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error(`${names[index]} is not base64url.`);
+              const bytes = Buffer.from(value, "base64url");
+              if (bytes.toString("base64url") !== value) throw new Error(`${names[index]} is not canonical base64url.`);
+              const key = createPublicKey({ key: bytes, format: "der", type: "spki" });
+              if (key.asymmetricKeyType !== "ed25519") throw new Error(`${names[index]} is not an Ed25519 public key.`);
+              if (!key.export({ format: "der", type: "spki" }).equals(bytes)) throw new Error(`${names[index]} is not a canonical SPKI key.`);
+              return bytes;
+            });
+            if (keys[0].equals(keys[1])) throw new Error("Rule-pack and update public keys must be distinct.");
+          '
+          if ($LASTEXITCODE -ne 0) { throw "The embedded trust keys are invalid." }
+
+      - name: Import persistent staging signing certificate
+        shell: pwsh
+        env:
+          WINDOWS_STAGING_CERT_PFX_BASE64: ${{ secrets.WINDOWS_STAGING_CERT_PFX_BASE64 }}
+          WINDOWS_STAGING_CERT_PASSWORD: ${{ secrets.WINDOWS_STAGING_CERT_PASSWORD }}
+          WINDOWS_STAGING_CERT_SHA256: ${{ vars.WINDOWS_STAGING_CERT_SHA256 }}
+        run: |
+          $pfxPath = Join-Path $env:RUNNER_TEMP "Authenti8Staging.pfx"
+          "WINDOWS_CERT_PFX=$pfxPath" >> $env:GITHUB_ENV
+          try {
+            $pfxBytes = [Convert]::FromBase64String($env:WINDOWS_STAGING_CERT_PFX_BASE64)
+          } catch {
+            throw "WINDOWS_STAGING_CERT_PFX_BASE64 is not valid base64."
+          }
+          [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
+          $password = ConvertTo-SecureString $env:WINDOWS_STAGING_CERT_PASSWORD `
+            -AsPlainText -Force
+          $certificate = Import-PfxCertificate -FilePath $pfxPath `
+            -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if ($certificate) {
+            "WINDOWS_CERT_THUMBPRINT=$($certificate.Thumbprint)" >> $env:GITHUB_ENV
+          }
+          if (-not $certificate -or -not $certificate.HasPrivateKey) {
+            throw "The staging certificate or its private key could not be imported."
+          }
+          $certificateSha256 = $certificate.GetCertHashString(
+            [Security.Cryptography.HashAlgorithmName]::SHA256)
+          if ($certificateSha256 -ne $env:WINDOWS_STAGING_CERT_SHA256.ToUpperInvariant()) {
+            throw "The staging certificate does not match WINDOWS_STAGING_CERT_SHA256."
+          }
+          $codeSigningOid = "1.3.6.1.5.5.7.3.3"
+          if ($certificate.NotAfter -le (Get-Date) -or
+              -not ($certificate.EnhancedKeyUsageList.ObjectId -contains $codeSigningOid)) {
+            throw "The staging certificate is expired or is not valid for code signing."
+          }
+          $cerPath = Join-Path $env:RUNNER_TEMP "Authenti8Staging.cer"
+          "WINDOWS_CERT_CER=$cerPath" >> $env:GITHUB_ENV
+          [IO.File]::WriteAllBytes($cerPath, $certificate.Export(
+            [Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+          Import-Certificate -FilePath $cerPath `
+            -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+          Import-Certificate -FilePath $cerPath `
+            -CertStoreLocation Cert:\CurrentUser\TrustedPublisher | Out-Null
+          $signTool = Get-ChildItem `
+            "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" `
+            -File | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signTool) { throw "Windows SDK SignTool was not found." }
+          "WINDOWS_SIGNTOOL=$signTool" >> $env:GITHUB_ENV
+
+      - name: Build production-channel staging installer
+        env:
+          AUTHENTI8_API_ORIGIN: ${{ secrets.AUTHENTI8_API_ORIGIN }}
+          AUTHENTI8_RULE_PACK_PUBLIC_KEY: ${{ secrets.AUTHENTI8_RULE_PACK_PUBLIC_KEY }}
+          AUTHENTI8_UPDATE_PUBLIC_KEY: ${{ secrets.AUTHENTI8_UPDATE_PUBLIC_KEY }}
+          AUTHENTI8_CHROME_EXTENSION_ID: ${{ secrets.AUTHENTI8_CHROME_EXTENSION_ID }}
+        run: npm run package:windows -w @authenti8/windows-agent
+
+      - name: Verify signatures and prepare artifact
+        shell: pwsh
+        env:
+          WINDOWS_STAGING_ARTIFACT_PASSWORD: ${{ secrets.WINDOWS_STAGING_ARTIFACT_PASSWORD }}
+        run: |
+          $release = "apps\windows-agent\release"
+          foreach ($name in @("Authenti8Verify.exe", "Authenti8VerifyNativeHost.exe",
+              "Authenti8VerifySetup.exe")) {
+            $path = Join-Path $release $name
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "$name is missing." }
+            $signature = Get-AuthenticodeSignature -LiteralPath $path
+            if ($signature.Status -ne "Valid" -or
+                -not $signature.SignerCertificate -or
+                $signature.SignerCertificate.Thumbprint -ne $env:WINDOWS_CERT_THUMBPRINT) {
+              throw "$name does not have the expected intact staging signature."
+            }
+          }
+          $artifact = Join-Path $env:RUNNER_TEMP "authenti8-windows-staging"
+          New-Item -ItemType Directory -Path $artifact | Out-Null
+          Copy-Item "$release\Authenti8VerifySetup.exe" `
+            "$artifact\Authenti8VerifySetup-Staging.exe"
+          $certificate = Get-Item "Cert:\CurrentUser\My\$env:WINDOWS_CERT_THUMBPRINT"
+          [IO.File]::WriteAllBytes("$artifact\Authenti8Staging.cer", $certificate.Export(
+            [Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+          Get-FileHash "$artifact\Authenti8VerifySetup-Staging.exe", `
+            "$artifact\Authenti8Staging.cer" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } |
+            Set-Content "$artifact\SHA256SUMS.txt" -Encoding ascii
+          $sevenZip = "${env:ProgramFiles}\7-Zip\7z.exe"
+          if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) {
+            throw "7-Zip was not found on the Windows runner."
+          }
+          $encrypted = Join-Path $env:RUNNER_TEMP "authenti8-windows-staging.7z"
+          & $sevenZip a -t7z -mhe=on -m0=lzma2 -mx=9 `
+            "-p$env:WINDOWS_STAGING_ARTIFACT_PASSWORD" $encrypted "$artifact\*"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $encrypted -PathType Leaf)) {
+            throw "The encrypted staging artifact could not be created."
+          }
+          & $sevenZip t "-p$env:WINDOWS_STAGING_ARTIFACT_PASSWORD" $encrypted
+          if ($LASTEXITCODE -ne 0) { throw "The encrypted staging artifact failed validation." }
+
+      - name: Remove staging signing material
+        if: always()
+        shell: pwsh
+        run: |
+          if ($env:WINDOWS_CERT_THUMBPRINT) {
+            foreach ($store in @("My", "Root", "TrustedPublisher")) {
+              Remove-Item "Cert:\CurrentUser\$store\$env:WINDOWS_CERT_THUMBPRINT" `
+                -Force -ErrorAction SilentlyContinue
+            }
+          }
+          if ($env:WINDOWS_CERT_PFX -and (Test-Path -LiteralPath $env:WINDOWS_CERT_PFX)) {
+            Remove-Item -LiteralPath $env:WINDOWS_CERT_PFX -Force
+          }
+          if ($env:WINDOWS_CERT_CER -and (Test-Path -LiteralPath $env:WINDOWS_CERT_CER)) {
+            Remove-Item -LiteralPath $env:WINDOWS_CERT_CER -Force
+          }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: authenti8-windows-staging-${{ github.run_number }}
+          path: ${{ runner.temp }}/authenti8-windows-staging.7z
+          if-no-files-found: error
+          retention-days: 14
