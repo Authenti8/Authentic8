@@ -36,16 +36,14 @@ test("meeting pages are tenant-scoped, filterable, and cursor-paginated", async 
       userId: fixture.userId, candidate: "%", limit: 25,
     });
     assert.deepEqual(wildcard.items, []);
-    await fixture.database.query(
-      "UPDATE organizations SET default_timezone = 'Asia/Kolkata' WHERE id = $1",
-      [fixture.organizationId]);
     await insertInterview(fixture.database, fixture.organizationId, "Local Date Candidate",
-      "local-date@candidate.test", new Date("2030-08-14T20:00:00.000Z"));
+      "local-date@candidate.test", new Date("2030-08-15T12:00:00.000Z"));
     const localDay = await rpc<MeetingsPage>(fixture.database, "authenti8_meetings_page", {
       userId: fixture.userId, from: "2030-08-15", to: "2030-08-15", limit: 25,
     });
     assert.deepEqual(localDay.items.map((item) => item.candidateEmail),
       ["local-date@candidate.test"]);
+    assert.match(loadMigrations(), /::DATE AT TIME ZONE org_timezone/);
     const invalidLimit = await rpc<MeetingsPage & { invalid?: boolean }>(fixture.database,
       "authenti8_meetings_page", { userId: fixture.userId, limit: "999999999999999999999" });
     assert.equal(invalidLimit.invalid, true);
