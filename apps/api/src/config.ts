@@ -23,6 +23,7 @@ export function loadConfig() {
   const dodo = dodoConfig(nodeEnv);
   const supabasePublishableKey = supabaseBrowserKey(Boolean(google.googleClientId));
   const cronSecret = mailWorkerSecret(nodeEnv);
+  const accuracyUploadSecret = internalSecret("ACCURACY_UPLOAD_SECRET", nodeEnv);
   const smtp = {
     host: process.env.SMTP_HOST?.trim() ?? "",
     port: Number(process.env.SMTP_PORT ?? 587),
@@ -48,12 +49,21 @@ export function loadConfig() {
     supabaseSecretKey,
     supabasePublishableKey,
     cronSecret,
+    accuracyUploadSecret,
     ...google,
     ...googleCalendar,
     dodo,
     smtp,
     mailEncryptionKey,
   };
+}
+
+function internalSecret(name: string, nodeEnv: string) {
+  const value = process.env[name]?.trim() ?? "";
+  if (nodeEnv === "production" && value.length < 32) {
+    throw new Error(`${name} must contain at least 32 characters in production`);
+  }
+  return value || `development-${name.toLowerCase()}`;
 }
 
 function googleCalendarConfig(nodeEnv: string, appOrigin: string) {

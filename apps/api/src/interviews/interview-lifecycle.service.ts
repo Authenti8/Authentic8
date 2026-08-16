@@ -70,6 +70,12 @@ export class InterviewLifecycleService {
     return this.supabase.rpc("authenti8_candidate_end_monitoring", { tokenHash: hashToken(token) });
   }
 
+  submitCandidateDispute(token: string, reason: string) {
+    return this.supabase.rpc("authenti8_submit_candidate_dispute", {
+      tokenHash: hashToken(token), reason,
+    });
+  }
+
   endRecruiterMonitoring(userId: string, interviewId: string) {
     return this.supabase.rpc("authenti8_recruiter_end_monitoring", { userId, interviewId });
   }

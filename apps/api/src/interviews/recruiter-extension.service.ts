@@ -3,12 +3,14 @@ import { hashToken, randomToken } from "../auth/crypto.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import { concatMap, from, ignoreElements, interval, map, merge, Observable,
   switchMap, takeUntil, timer, type Subscriber } from "rxjs";
+import { OperationalFailureService } from "../observability/operational-failure.service.js";
 
 @Injectable()
 export class RecruiterExtensionService {
   private readonly feeds = new Map<string, LiveFeed>();
 
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(private readonly supabase: SupabaseService,
+    private readonly failures?: OperationalFailureService) {}
 
   async issue(userId: string, organizationId: string) {
     assertUuid(organizationId);
@@ -101,6 +103,11 @@ export class RecruiterExtensionService {
         this.scheduleFeed(key, feed, result.events.length === 500 ? 0 : 2_000);
       }
     } catch (error) {
+      if (!(error instanceof UnauthorizedException)) {
+        await this.failures?.record({ component: "LIVE_STREAM", errorCode: "LIVE_LOG_POLL_FAILED",
+          safeMessage: "Recruiter live-log polling failed.", reference: feed.interviewId,
+          organizationId: feed.identity.organizationId, interviewId: feed.interviewId });
+      }
       for (const subscriber of feed.subscribers.keys()) subscriber.error(error);
       if (this.feeds.get(key) === feed) this.feeds.delete(key);
     } finally { feed.polling = false; }

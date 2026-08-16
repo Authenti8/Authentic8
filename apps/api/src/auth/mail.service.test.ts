@@ -13,7 +13,8 @@ const environmentKeys = [
   "DASHBOARD_ORIGIN", "PAYMENT_ORIGIN", "SESSION_COOKIE_DOMAIN", "SMTP_HOST",
   "AUTH_MAIL_ENCRYPTION_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
   "GOOGLE_CALLBACK_URL", "GOOGLE_CALENDAR_CALLBACK_URL",
-  "INTEGRATION_ENCRYPTION_KEY", "CRON_SECRET", "DODO_PAYMENTS_WEBHOOK_KEY",
+  "INTEGRATION_ENCRYPTION_KEY", "CRON_SECRET", "ACCURACY_UPLOAD_SECRET",
+  "DODO_PAYMENTS_WEBHOOK_KEY",
 ] as const;
 
 test("Vercel mail delivery only runs through the protected worker", async () => {
@@ -63,6 +64,7 @@ function configureVercelEnvironment() {
   process.env.AUTH_MAIL_ENCRYPTION_KEY = Buffer.alloc(32).toString("base64");
   process.env.INTEGRATION_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
   process.env.CRON_SECRET = "test-mail-worker-secret";
+  process.env.ACCURACY_UPLOAD_SECRET = "test-accuracy-upload-secret-32-bytes";
   process.env.GOOGLE_CLIENT_ID = "";
   process.env.GOOGLE_CLIENT_SECRET = "";
   process.env.GOOGLE_CALLBACK_URL = "";

@@ -1,0 +1,15 @@
+{
+  "platform": "MACOS", "osVersion": "macOS 15", "agentVersion": "0.1.0",
+  "rulePackVersion": "pilot-v1", "scenarioContractVersion": "pilot-v1", "commitSha": "local",
+  "scenarios": [
+    { "id": "cluely-active", "observation": { "channel": "OVERLAY", "ruleKey": "cluely", "observedIdentity": "com.authenti8.fixture.cluely" }, "expected": "CONFIRMED" },
+    { "id": "parakeet-active", "observation": { "channel": "OVERLAY", "ruleKey": "parakeet", "observedIdentity": "com.authenti8.fixture.parakeet" }, "expected": "CONFIRMED" },
+    { "id": "hidden-overlay", "observation": { "channel": "OVERLAY", "ruleKey": "hidden-overlay", "observedIdentity": "com.authenti8.fixture.overlay" }, "expected": "CONFIRMED" },
+    { "id": "virtual-audio-ai", "observation": { "channel": "AUDIO", "ruleKey": "audio-ai", "observedIdentity": "com.authenti8.fixture.audio", "audioName": "Authenti8 AI Audio" }, "expected": "CONFIRMED" },
+    { "id": "meet-slack-teams-zoom", "observation": { "channel": "PROCESS", "ruleKey": "cluely", "observedIdentity": "com.google.Chrome" }, "expected": "NOT_DETECTED" },
+    { "id": "notion-vscode", "observation": { "channel": "OVERLAY", "ruleKey": "hidden-overlay", "observedIdentity": "com.microsoft.VSCode" }, "expected": "NOT_DETECTED" },
+    { "id": "recorders-password-managers", "observation": { "channel": "PROCESS", "ruleKey": "parakeet", "observedIdentity": "com.1password.1password" }, "expected": "NOT_DETECTED" },
+    { "id": "accessibility-noise-removal", "observation": { "channel": "PROCESS", "ruleKey": "audio-ai", "observedIdentity": "com.krisp.Krisp" }, "expected": "NOT_DETECTED" },
+    { "id": "benign-virtual-audio", "observation": { "channel": "AUDIO", "ruleKey": "audio-ai", "observedIdentity": "com.apple.audio.AudioMIDISetup", "audioName": "Benign Virtual Audio" }, "expected": "NOT_DETECTED" }
+  ]
+}

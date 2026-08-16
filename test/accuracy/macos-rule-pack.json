@@ -1,0 +1,9 @@
+{
+  "version": "pilot-v1", "expiresAt": "2099-01-01T00:00:00.000Z", "signature": "FrbdurJPBUTaRdyKlhE5gveTX0lERGtP60HZ7O-ckailJoS18tF1ogqNAm-4hoNtH2wRE6RudFzEqdRqYvlkDA",
+  "rules": [
+    { "key": "cluely", "family": "AI_ASSISTANCE", "version": 1, "enabled": true, "bundleIdentifiers": ["com.authenti8.fixture.cluely"], "teamIdentifiers": [], "executableSha256": [], "overlayRequired": true },
+    { "key": "parakeet", "family": "AI_ASSISTANCE", "version": 1, "enabled": true, "bundleIdentifiers": ["com.authenti8.fixture.parakeet"], "teamIdentifiers": [], "executableSha256": [], "overlayRequired": true },
+    { "key": "hidden-overlay", "family": "HIDDEN_OVERLAY", "version": 1, "enabled": true, "bundleIdentifiers": ["com.authenti8.fixture.overlay"], "teamIdentifiers": [], "executableSha256": [], "overlayRequired": true },
+    { "key": "audio-ai", "family": "VIRTUAL_AUDIO", "version": 1, "enabled": true, "bundleIdentifiers": ["com.authenti8.fixture.audio"], "teamIdentifiers": [], "executableSha256": [], "overlayRequired": false, "virtualAudioNames": ["Authenti8 AI Audio"] }
+  ]
+}

@@ -4,12 +4,14 @@ import { isTelemetryEnvelope } from "@authenti8/validation";
 import { RateLimiterService } from "../auth/rate-limiter.service.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import { verifyTelemetry } from "./telemetry-crypto.js";
+import { OperationalFailureService } from "../observability/operational-failure.service.js";
 
 @Injectable()
 export class TelemetryService {
   constructor(
     @Inject(SupabaseService) private readonly supabase: SupabaseService,
     @Inject(RateLimiterService) private readonly rateLimiter: RateLimiterService,
+    @Inject(OperationalFailureService) private readonly failures: OperationalFailureService,
   ) {}
 
   async ingest(value: unknown) {
@@ -27,9 +29,19 @@ export class TelemetryService {
     await this.rateLimiter.consume(
       `agent:telemetry:session:${value.verificationSessionId}`, 1_500, 5 * 60_000,
     );
-    const result = await this.supabase.rpc<IngestionResult>("authenti8_ingest_agent_event", {
-      ...value, eventChainHash,
-    });
+    let result: IngestionResult;
+    try {
+      result = await this.supabase.rpc<IngestionResult>("authenti8_ingest_agent_event", {
+        ...value, eventChainHash,
+      });
+    } catch (error) {
+      await this.failures.record({ component: "TELEMETRY_INGESTION",
+        errorCode: "TELEMETRY_RPC_FAILED", safeMessage: "Telemetry ingestion failed.",
+        reference: value.verificationSessionId,
+        context: { verificationSessionId: value.verificationSessionId,
+          eventType: value.eventType } });
+      throw error;
+    }
     if (!result.accepted) throw new BadRequestException(`Telemetry rejected: ${result.reason}.`);
     return result;
   }

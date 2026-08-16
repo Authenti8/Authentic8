@@ -1,0 +1,29 @@
+.admin-page { min-height: 100vh; padding: 48px max(24px, 7vw); background: #f5f8fc; color: #0b1220; }
+.admin-page > header { display: flex; justify-content: space-between; align-items: end; gap: 24px; }
+.admin-page header span, .readiness span { color: #136af3; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.admin-page h1 { margin: 7px 0; font-size: clamp(32px, 4vw, 52px); }
+.admin-page p, .admin-page small { color: #637083; }
+.admin-page a { color: #136af3; font-weight: 700; }
+.readiness { margin: 32px 0 20px; padding: 24px; border: 1px solid #d8e1ee; border-radius: 18px; background: white; display: grid; grid-template-columns: auto 1fr 2fr; align-items: center; gap: 18px; }
+.readiness.ready { border-color: #99dfbd; }.readiness.blocked { border-color: #efbdc0; }
+.readiness h2 { margin: 4px 0 0; font-size: 21px; }.gate-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.gate-list span { display: flex; align-items: center; gap: 5px; color: #536175; background: #f4f6fa; padding: 7px 10px; border-radius: 999px; letter-spacing: 0; text-transform: none; }
+.admin-search { display: flex; align-items: center; gap: 10px; background: white; border: 1px solid #d8e1ee; border-radius: 14px; padding: 8px 12px; }
+.admin-search input { flex: 1; border: 0; outline: 0; padding: 10px; font: inherit; }.admin-search button { border: 0; border-radius: 10px; padding: 10px 18px; color: white; background: #136af3; font-weight: 700; }
+.admin-table { margin-top: 18px; background: white; border: 1px solid #d8e1ee; border-radius: 18px; overflow: hidden; }
+.admin-table-head { display: grid; grid-template-columns: 2fr 1fr 1fr .5fr; gap: 16px; padding: 16px 20px; align-items: center; }
+.admin-table article { display: grid; grid-template-columns: 2fr 1fr 1fr .5fr; gap: 16px; padding: 16px 20px; align-items: center; }
+.admin-table-head { color: #637083; background: #f8fafc; font-size: 12px; font-weight: 800; text-transform: uppercase; }.admin-table article { border-top: 1px solid #e8edf4; }
+.admin-table article > span:first-child, .admin-table article > span:nth-child(2) { display: flex; flex-direction: column; gap: 4px; }.healthy { color: #087e51; }.issue { color: #b4232d; }
+.admin-disputes { margin-top: 18px; padding: 22px; border: 1px solid #d8e1ee; border-radius: 18px; background: white; }
+.admin-disputes h2 { margin: 4px 0 16px; }.admin-disputes article { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 18px; padding: 16px 0; border-top: 1px solid #e8edf4; }
+.admin-disputes article > div { display: flex; flex-direction: column; gap: 6px; }.admin-disputes form { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; }
+.admin-disputes textarea { min-height: 70px; resize: vertical; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; }.admin-disputes button { align-self: end; padding: 10px 12px; border: 1px solid #b9c7d8; border-radius: 10px; background: white; font-weight: 700; }.admin-disputes button.resolve { color: white; border-color: #136af3; background: #136af3; }
+.inline-change { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+.inline-change input { min-width: 140px; flex: 1; padding: 9px; border: 1px solid #cbd5e1; border-radius: 9px; font: inherit; }
+.inline-change button, .admin-operations button { padding: 9px 12px; border: 0; border-radius: 9px; background: #136af3; color: white; font-weight: 700; }
+.inline-change button:disabled, .admin-operations button:disabled { background: #94a3b8; cursor: not-allowed; }
+.admin-operations { margin-top: 18px; padding: 22px; border: 1px solid #d8e1ee; border-radius: 18px; background: white; }
+.admin-operations h2 { margin: 4px 0 16px; }.admin-operations article { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 14px 0; border-top: 1px solid #e8edf4; }
+.admin-operations article > div { display: flex; flex-direction: column; gap: 5px; }.admin-operations code { color: #536175; }
+@media (max-width: 760px) { .readiness { grid-template-columns: auto 1fr; }.gate-list { grid-column: 1 / -1; }.admin-table-head { display: none; }.admin-table article { grid-template-columns: 1fr 1fr; }.admin-page > header { align-items: start; flex-direction: column; }.admin-disputes article, .admin-disputes form { grid-template-columns: 1fr; }.admin-operations article { align-items: stretch; flex-direction: column; } }

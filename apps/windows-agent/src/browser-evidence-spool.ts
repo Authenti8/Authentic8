@@ -13,7 +13,7 @@ export async function enqueueBrowserEvidence(request: NativeRequest) {
   const runtime = request.extensionRuntimeId ?? "";
   if (!uuid(profile) || !/^[a-p]{32}$/.test(runtime) || !Array.isArray(request.evidence)
     || request.evidence.length > 50) return false;
-  const normalized = request.evidence.map(validEvidence);
+  const normalized = request.evidence.map(normalizeBrowserEvidence);
   if (normalized.some((item) => !item)) return false;
   const health = { eventType: "BROWSER_PROFILE_HEALTH", payload: {
     profileInstanceId: profile, nativeHostConnected: true,
@@ -32,7 +32,7 @@ export async function claimBrowserEvidence() {
   const [result] = await runSensor<{ claimId?: string; evidence?: unknown[] }>(
     "browser-evidence-store.ps1", ["claim"]);
   if (!uuid(result?.claimId ?? "")) return undefined;
-  const evidence = (result?.evidence ?? []).map(validEvidence).filter(Boolean) as
+  const evidence = (result?.evidence ?? []).map(normalizeBrowserEvidence).filter(Boolean) as
     SpooledBrowserEvidence[];
   return { claimId: result!.claimId!, evidence };
 }
@@ -44,7 +44,7 @@ export async function acknowledgeBrowserEvidence(claimId: string) {
   return result?.acknowledged === true;
 }
 
-function validEvidence(value: unknown): SpooledBrowserEvidence | undefined {
+export function normalizeBrowserEvidence(value: unknown): SpooledBrowserEvidence | undefined {
   if (!record(value) || typeof value.eventType !== "string"
     || !allowedEvents.has(value.eventType as TelemetryEventType) || !record(value.payload)) return;
   const payload = value.payload;

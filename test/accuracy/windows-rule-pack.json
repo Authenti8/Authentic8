@@ -1,0 +1,11 @@
+{
+  "version": "pilot-v1", "expiresAt": "2099-01-01T00:00:00.000Z", "signature": "UH5KDcpiLFmQegPSkUoI7rIPrpjUtUwtiDzUXe-jHoYUZgiYrH9FfOHfvmBV4kbriL42jyyEDP7tGJ3BIJFWDQ",
+  "rules": [
+    { "key": "cluely", "family": "AI_ASSISTANCE", "version": 1, "enabled": true, "executableSha256": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "signerThumbprints": [], "productNames": [], "overlayRequired": true },
+    { "key": "parakeet", "family": "AI_ASSISTANCE", "version": 1, "enabled": true, "executableSha256": ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"], "signerThumbprints": [], "productNames": [], "overlayRequired": false },
+    { "key": "hidden-overlay", "family": "HIDDEN_OVERLAY", "version": 1, "enabled": true, "executableSha256": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"], "signerThumbprints": [], "productNames": [], "overlayRequired": true },
+    { "key": "capture-overlay", "family": "HIDDEN_OVERLAY", "version": 1, "enabled": true, "executableSha256": ["dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"], "signerThumbprints": [], "productNames": [], "overlayRequired": true },
+    { "key": "audio-ai", "family": "VIRTUAL_AUDIO", "version": 1, "enabled": true, "executableSha256": ["eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"], "signerThumbprints": [], "productNames": [], "overlayRequired": false, "virtualAudioNames": ["Authenti8 AI Audio"] },
+    { "key": "supported-extension", "family": "BROWSER_EXTENSION", "version": 1, "enabled": true, "executableSha256": [], "signerThumbprints": [], "productNames": [], "extensionIds": ["abcdefghijklmnopabcdefghijklmnop"] }
+  ]
+}

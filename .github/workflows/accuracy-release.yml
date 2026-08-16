@@ -1,0 +1,104 @@
+name: Release Accuracy Gate
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: production-accuracy-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  authorize-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require the protected release branch
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "Accuracy releases may only be dispatched from main." >&2
+            exit 1
+          fi
+
+  native-accuracy:
+    needs: authorize-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: WINDOWS
+            runner: authenti8-windows-accuracy
+            result: windows.json
+            package_command: package:windows
+            package_workspace: "@authenti8/windows-agent"
+          - platform: MACOS
+            runner: authenti8-macos-accuracy
+            result: macos.json
+            package_command: package:macos
+            package_workspace: "@authenti8/macos-agent"
+    runs-on: [self-hosted, "${{ matrix.runner }}"]
+    environment: production
+    timeout-minutes: 20
+    env:
+      AUTHENTI8_ACCURACY_PLATFORM: ${{ matrix.platform }}
+      AUTHENTI8_API_ORIGIN: ${{ vars.AUTHENTI8_API_ORIGIN }}
+      AUTHENTI8_BUILD_CHANNEL: production
+      AUTHENTI8_CHROME_EXTENSION_ID: ${{ vars.AUTHENTI8_CHROME_EXTENSION_ID }}
+      AUTHENTI8_RULE_PACK_PUBLIC_KEY: ${{ vars.AUTHENTI8_RULE_PACK_PUBLIC_KEY }}
+      AUTHENTI8_MACOS_RULE_PACK_PUBLIC_KEY: ${{ vars.AUTHENTI8_RULE_PACK_PUBLIC_KEY }}
+      AUTHENTI8_UPDATE_PUBLIC_KEY: ${{ vars.AUTHENTI8_UPDATE_PUBLIC_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+      - run: npm ci
+      - name: Build the signed candidate from the dispatched commit
+        run: npm run ${{ matrix.package_command }} -w ${{ matrix.package_workspace }}
+      - name: Execute native device accuracy suite against the candidate binary
+        run: node scripts/run-native-accuracy.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: accuracy-${{ matrix.platform }}
+          path: native-accuracy-output/${{ matrix.platform == 'WINDOWS' && 'windows' || 'macos' }}
+          if-no-files-found: error
+
+  attest:
+    needs: native-accuracy
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    env:
+      AUTHENTI8_API_ORIGIN: ${{ vars.AUTHENTI8_API_ORIGIN }}
+      ACCURACY_UPLOAD_SECRET: ${{ secrets.ACCURACY_UPLOAD_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: accuracy-WINDOWS
+          path: native-accuracy-output/windows
+      - uses: actions/download-artifact@v4
+        with:
+          name: accuracy-MACOS
+          path: native-accuracy-output/macos
+      - name: Verify native evidence and exact tested binaries
+        run: node scripts/verify-native-accuracy.mjs
+      - name: Enforce combined release threshold
+        run: node scripts/accuracy-harness.mjs native-accuracy-output/windows/windows.json native-accuracy-output/macos/macos.json
+      - name: Upload attested results
+        run: npm run accuracy:upload

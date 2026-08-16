@@ -16,6 +16,11 @@
     "guardian": "./guardian.sh",
     "guardian:quality": "./guardian.sh quality",
     "guardian:functionality": "./guardian.sh functionality",
+    "accuracy": "npm run build -w @authenti8/windows-agent && npm run build -w @authenti8/macos-agent && node scripts/accuracy-runner.mjs && node scripts/accuracy-harness.mjs accuracy-runner-results/windows.json accuracy-runner-results/macos.json",
+    "accuracy:windows": "npm run build -w @authenti8/windows-agent && node scripts/accuracy-runner.mjs --platform WINDOWS",
+    "accuracy:macos": "npm run build -w @authenti8/macos-agent && node scripts/accuracy-runner.mjs --platform MACOS",
+    "accuracy:fixtures": "AUTHENTI8_ACCURACY_FIXTURE_MODE=true AUTHENTI8_ACCURACY_ALLOW_FIXTURES=true npm run accuracy",
+    "accuracy:upload": "node scripts/upload-accuracy-results.mjs",
     "hooks:install": "git config core.hooksPath .githooks"
   },
   "devDependencies": {

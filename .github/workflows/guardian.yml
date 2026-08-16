@@ -28,4 +28,6 @@ jobs:
           node-version: 20.19.0
           cache: npm
       - run: npm ci
+      - name: Verify matcher fixtures
+        run: npm run accuracy:fixtures
       - run: npm run guardian

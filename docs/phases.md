@@ -2286,6 +2286,8 @@ ELSE:
 
 # Phase 36 — Internal Admin Panel
 
+> Implemented by migrations 040–041, the audited `/admin` surface, and protected admin APIs.
+
 ## Feature
 
 Allow the Authenti8 team to operate the platform.
@@ -2324,6 +2326,9 @@ FOR every admin action:
 
 # Phase 37 — Privacy, Security, and Retention
 
+> Implemented with organization retention policies, daily anonymization/evidence deletion, and
+> post-deletion report denial. See `docs/phases-36-40-operations.md`.
+
 ## Feature
 
 Protect candidate and recruiter information.
@@ -2359,6 +2364,8 @@ DAILY:
 ---
 
 # Phase 38 — Accuracy and False-Positive Test Harness
+
+> Implemented by the versioned cross-platform accuracy manifests and CI release gate.
 
 ## Feature
 
@@ -2426,6 +2433,9 @@ Prioritize precision over aggressive detection. It is better to report Not Detec
 
 # Phase 39 — Observability and Failure Recovery
 
+> Implemented with correlation IDs, sanitized operational failures, exponential retry, dead-letter
+> audit events, and safe report/calendar recovery.
+
 ## Feature
 
 Monitor all production components.
@@ -2465,6 +2475,8 @@ FOR every background job:
 ---
 
 # Phase 40 — End-to-End Pilot Release
+
+> Implemented as a fail-closed readiness API and internal control-room gate for design partners.
 
 ## Feature
 

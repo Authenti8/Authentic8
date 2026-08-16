@@ -12,12 +12,14 @@ import type {
   GoogleWatchResponse, IntegrationCredentials,
 } from "./google.types.js";
 import { decryptIntegrationToken, encryptIntegrationToken } from "./token-crypto.js";
+import { OperationalFailureService } from "../observability/operational-failure.service.js";
 
 @Injectable()
 export class GoogleCalendarService {
   private readonly config = loadConfig();
   private readonly logger = new Logger(GoogleCalendarService.name);
-  constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService) {}
+  constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService,
+    private readonly failures?: OperationalFailureService) {}
 
   async begin(userId: string) {
     this.assertConfigured();
@@ -200,6 +202,11 @@ export class GoogleCalendarService {
           integrationId: credentials.id, generation: credentials.generation,
           status: "REAUTH_REQUIRED",
         });
+      } else {
+        await this.failures?.record({ component: "OAUTH_REFRESH",
+          errorCode: "GOOGLE_TOKEN_REFRESH_FAILED", safeMessage: "Google token refresh failed.",
+          reference: credentials.id, organizationId: credentials.organizationId,
+          context: { googleIntegrationId: credentials.id } });
       }
       throw error;
     }

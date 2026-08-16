@@ -10,6 +10,8 @@ node_modules/
 
 # Tests
 /coverage/
+/accuracy-results.json
+/accuracy-runner-results/
 
 # Next.js build output
 .next/

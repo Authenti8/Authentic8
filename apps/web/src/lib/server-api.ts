@@ -34,6 +34,17 @@ export async function getServerApi<T>(path: string) {
   return response.json() as Promise<T>;
 }
 
+export async function postServerApi<T>(path: string, body: unknown) {
+  const cookieHeader = (await cookies()).toString();
+  const response = await fetch(`${apiBaseUrl}/v1${path}`, {
+    method: "POST", headers: { cookie: cookieHeader, "content-type": "application/json" },
+    body: JSON.stringify(body), cache: "no-store",
+  });
+  if (response.status === 401) redirect("/login");
+  if (!response.ok) throw new Error(`Authenti8 API request failed (${response.status}).`);
+  return response.json() as Promise<T>;
+}
+
 export async function requireSession() {
   const session = await getSession();
   if (!session) redirect("/login");

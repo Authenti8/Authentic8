@@ -1,0 +1,18 @@
+{
+  "platform": "WINDOWS", "osVersion": "Windows 11", "agentVersion": "0.1.0",
+  "rulePackVersion": "pilot-v1", "scenarioContractVersion": "pilot-v1", "commitSha": "local",
+  "scenarios": [
+    { "id": "cluely-active", "observation": { "channel": "OVERLAY", "ruleKey": "cluely", "observedIdentity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, "expected": "CONFIRMED" },
+    { "id": "parakeet-active", "observation": { "channel": "OVERLAY", "ruleKey": "parakeet", "observedIdentity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }, "expected": "CONFIRMED" },
+    { "id": "supported-extension-active", "observation": { "channel": "EXTENSION", "ruleKey": "supported-extension", "extensionId": "abcdefghijklmnopabcdefghijklmnop", "enabled": true }, "expected": "CONFIRMED" },
+    { "id": "hidden-overlay", "observation": { "channel": "OVERLAY", "ruleKey": "hidden-overlay", "observedIdentity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }, "expected": "CONFIRMED" },
+    { "id": "capture-excluded-overlay", "observation": { "channel": "CAPTURE_EXCLUDED", "ruleKey": "capture-overlay", "observedIdentity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" }, "expected": "CONFIRMED" },
+    { "id": "virtual-audio-ai", "observation": { "channel": "AUDIO", "ruleKey": "audio-ai", "observedIdentity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "audioName": "Authenti8 AI Audio" }, "expected": "CONFIRMED" },
+    { "id": "google-meet", "observation": { "channel": "PROCESS", "ruleKey": "cluely", "observedIdentity": "1111111111111111111111111111111111111111111111111111111111111111" }, "expected": "NOT_DETECTED" },
+    { "id": "slack-teams-zoom", "observation": { "channel": "OVERLAY", "ruleKey": "hidden-overlay", "observedIdentity": "2222222222222222222222222222222222222222222222222222222222222222" }, "expected": "NOT_DETECTED" },
+    { "id": "notion-vscode", "observation": { "channel": "PROCESS", "ruleKey": "parakeet", "observedIdentity": "3333333333333333333333333333333333333333333333333333333333333333" }, "expected": "NOT_DETECTED" },
+    { "id": "recorders-password-managers", "observation": { "channel": "CAPTURE_EXCLUDED", "ruleKey": "capture-overlay", "observedIdentity": "4444444444444444444444444444444444444444444444444444444444444444" }, "expected": "NOT_DETECTED" },
+    { "id": "accessibility-noise-removal", "observation": { "channel": "EXTENSION", "ruleKey": "supported-extension", "extensionId": "pppppppppppppppppppppppppppppppp", "enabled": true }, "expected": "NOT_DETECTED" },
+    { "id": "benign-virtual-audio", "observation": { "channel": "AUDIO", "ruleKey": "audio-ai", "observedIdentity": "5555555555555555555555555555555555555555555555555555555555555555", "audioName": "Benign Virtual Audio" }, "expected": "NOT_DETECTED" }
+  ]
+}

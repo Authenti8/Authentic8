@@ -23,6 +23,13 @@ test("production requires a strong mail worker secret", () => {
   });
 });
 
+test("production requires a dedicated accuracy upload secret", () => {
+  withProductionEnvironment(() => {
+    delete process.env.ACCURACY_UPLOAD_SECRET;
+    assert.throws(() => loadConfig(), /ACCURACY_UPLOAD_SECRET/);
+  });
+});
+
 test("production requires a Supabase secret key", () => {
   withProductionEnvironment(() => {
     delete process.env.SUPABASE_SECRET_KEY;
@@ -135,7 +142,8 @@ function withProductionEnvironment(run: () => void) {
     "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CALLBACK_URL", "AUTH_MAIL_ENCRYPTION_KEY",
     "GOOGLE_CALENDAR_CALLBACK_URL", "INTEGRATION_ENCRYPTION_KEY",
-    "CRON_SECRET", "DODO_PAYMENTS_ENVIRONMENT", "DODO_PAYMENTS_WEBHOOK_KEY",
+    "CRON_SECRET", "ACCURACY_UPLOAD_SECRET", "DODO_PAYMENTS_ENVIRONMENT",
+    "DODO_PAYMENTS_WEBHOOK_KEY",
   ];
   const previous = new Map(names.map((name) => [name, process.env[name]]));
   process.env.NODE_ENV = "production";
@@ -146,6 +154,7 @@ function withProductionEnvironment(run: () => void) {
   process.env.AUTH_MAIL_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
   process.env.INTEGRATION_ENCRYPTION_KEY = Buffer.alloc(32, 8).toString("base64");
   process.env.CRON_SECRET = "test-mail-worker-secret";
+  process.env.ACCURACY_UPLOAD_SECRET = "test-accuracy-upload-secret-32-bytes";
   delete process.env.GOOGLE_CLIENT_ID;
   delete process.env.GOOGLE_CLIENT_SECRET;
   delete process.env.GOOGLE_CALLBACK_URL;

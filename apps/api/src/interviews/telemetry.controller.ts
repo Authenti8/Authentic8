@@ -4,6 +4,7 @@ import { isTelemetryEnvelope } from "@authenti8/validation";
 import { RateLimiterService } from "../auth/rate-limiter.service.js";
 import { TelemetryService } from "./telemetry.service.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
+import { OperationalFailureService } from "../observability/operational-failure.service.js";
 
 @Controller("agent/telemetry")
 export class TelemetryController {
@@ -25,7 +26,8 @@ export class TelemetryController {
 
 @Controller("agent")
 export class AgentReleaseController {
-  constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService) {}
+  constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService,
+    @Inject(OperationalFailureService) private readonly failures: OperationalFailureService) {}
 
   @Get("rules/windows")
   rules() { return this.rulePack("WINDOWS", "WINDOWS_RULE_PACK_JSON"); }
@@ -43,9 +45,15 @@ export class AgentReleaseController {
   macosRelease() { return releaseJson("MACOS_RELEASE_MANIFEST_JSON"); }
 
   private async rulePack(platform: string, fallback: string) {
-    const pack = await this.supabase.rpc<{ available: boolean; fallbackAllowed?: boolean }
-      & Record<string, unknown>>(
-      "authenti8_active_rule_pack", { platform });
+    let pack: { available: boolean; fallbackAllowed?: boolean } & Record<string, unknown>;
+    try {
+      pack = await this.supabase.rpc("authenti8_active_rule_pack", { platform });
+    } catch (error) {
+      await this.failures.record({ component: "DETECTION_RULE",
+        errorCode: "RULE_PACK_LOOKUP_FAILED", safeMessage: "Detection rule pack lookup failed.",
+        reference: platform, context: { platform } });
+      throw error;
+    }
     if (pack.available) {
       const { available, ...published } = pack;
       void available;

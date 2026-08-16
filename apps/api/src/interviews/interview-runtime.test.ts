@@ -60,6 +60,24 @@ test("candidate requests consume the token quota before the shared IP quota", as
   ]);
 });
 
+test("candidate disputes are normalized, rate limited, and token scoped", async () => {
+  const calls: Array<{ name: string; input: Record<string, unknown> }> = [];
+  const supabase = { rpc: async (name: string, input: Record<string, unknown>) => {
+    calls.push({ name, input });
+    return name === "authenti8_consume_rate_limit" ? 1 : { submitted: true, disputeId: "d-1" };
+  } } as unknown as SupabaseService;
+  const lifecycle = new InterviewLifecycleService(supabase, {} as MailService);
+  const controller = new CandidateController(lifecycle, supabase);
+  const token = "b".repeat(32);
+  const result = await controller.dispute({ token,
+    reason: "  The detection was not related to this interview.  " },
+  { ip: "203.0.113.10" } as Request);
+  assert.deepEqual(result, { submitted: true, disputeId: "d-1" });
+  assert.deepEqual(calls.at(-1), { name: "authenti8_submit_candidate_dispute",
+    input: { tokenHash: hashToken(token),
+      reason: "The detection was not related to this interview." } });
+});
+
 function deliveryJob(index: number) {
   return {
     interviewId: `interview-${index}`,

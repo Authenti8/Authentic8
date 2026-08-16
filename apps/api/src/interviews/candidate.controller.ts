@@ -68,6 +68,23 @@ export class CandidateController {
     return result;
   }
 
+  @Post("disputes")
+  async dispute(@Body() body: DisputeBody, @Req() request: Request) {
+    const token = body?.token ?? "";
+    assertToken(token);
+    await this.limit(request, "dispute", 3, token);
+    const reason = body?.reason?.trim() ?? "";
+    if (reason.length < 20 || reason.length > 2000) {
+      throw new BadRequestException("Explain the dispute in 20 to 2000 characters.");
+    }
+    const result = await this.lifecycle.submitCandidateDispute(token, reason) as DisputeResult;
+    if (!result.submitted && result.reason === "TOKEN_UNAVAILABLE") {
+      throw new GoneException("This interview is no longer available for dispute.");
+    }
+    if (!result.submitted) throw new BadRequestException("The dispute could not be submitted.");
+    return result;
+  }
+
   private async limit(request: Request, scope: string, count: number, token: string) {
     const address = request.ip ?? "unknown";
     await this.rateLimiter.consume(`candidate:${scope}:token:${hashToken(token)}`, count);
@@ -78,6 +95,8 @@ export class CandidateController {
 type VerificationBody = { token?: string };
 type ConsentBody = VerificationBody & { decision?: string; consentVersion?: string };
 type StopResult = { stopped?: boolean };
+type DisputeBody = VerificationBody & { reason?: string };
+type DisputeResult = { submitted?: boolean; reason?: string };
 
 function assertToken(token: string) {
   if (!/^[A-Za-z0-9_-]{32,256}$/.test(token)) {

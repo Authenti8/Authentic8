@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
-
+import { exerciseDisputeReview, insertInterview, loadMigrations, organizationInput, reportingFixture, rpc,
+  seedCandidateIdentity, type ReportingFixture } from "./reporting-migration.helper.js";
 test("meeting pages are tenant-scoped, filterable, and cursor-paginated", async () => {
   const fixture = await reportingFixture();
   try {
@@ -49,7 +48,6 @@ test("meeting pages are tenant-scoped, filterable, and cursor-paginated", async 
     assert.equal(invalidLimit.invalid, true);
   } finally { await fixture.database.close(); }
 });
-
 test("provider invoices are restricted to workspace owners and admins", async () => {
   const fixture = await reportingFixture();
   try {
@@ -77,7 +75,6 @@ test("provider invoices are restricted to workspace owners and admins", async ()
     assert.equal(readOnly, null);
   } finally { await fixture.database.close(); }
 });
-
 test("evidence is append-only and final reports remain immutable snapshots", async () => {
   const fixture = await reportingFixture();
   try {
@@ -127,7 +124,6 @@ test("evidence is append-only and final reports remain immutable snapshots", asy
       "DELETE FROM recruiter_live_events WHERE interview_id = $1", [interviewId]), /append-only/);
   } finally { await fixture.database.close(); }
 });
-
 test("critical notifications deduplicate and enqueue one email per member", async () => {
   const fixture = await reportingFixture();
   try {
@@ -169,7 +165,6 @@ test("critical notifications deduplicate and enqueue one email per member", asyn
     assert.equal(renewed.renewed, true);
   } finally { await fixture.database.close(); }
 });
-
 test("low-credit notification is emitted only when the balance crosses the threshold", async () => {
   const fixture = await reportingFixture();
   try {
@@ -188,7 +183,6 @@ test("low-credit notification is emitted only when the balance crosses the thres
     assert.equal(billing.includedUsed, 10);
   } finally { await fixture.database.close(); }
 });
-
 test("migration backfills completed reports and terminal failures leave processing", async () => {
   const database = new PGlite({ extensions: { pgcrypto, pg_trgm } });
   try {
@@ -222,59 +216,264 @@ test("migration backfills completed reports and terminal failures leave processi
     const interview = await database.query<{ status: string }>(
       "SELECT status FROM interviews WHERE id = $1", [interviewId]);
     assert.equal(interview.rows[0]?.status, "FAILED");
+    const observed = await database.query<{ count: number }>(`SELECT count(*)::INTEGER count FROM
+      operational_failures WHERE component = 'REPORT_QUEUE' AND interview_id = $1`, [interviewId]);
+    assert.equal(observed.rows[0]!.count, 1);
   } finally { await database.close(); }
 });
-
+test("platform admin changes require a reason, a second administrator, and immutable audit", async () => {
+  const fixture = await reportingFixture();
+  try {
+    const users = await fixture.database.query<{ id: string }>(
+      "SELECT id FROM users ORDER BY created_at");
+    const requester = users.rows[0]!.id;
+    const approver = users.rows[1]!.id;
+    await fixture.database.query(
+      "INSERT INTO platform_administrators(user_id) VALUES ($1),($2)", [requester, approver]);
+    const denied = await rpc<{ created: boolean }>(fixture.database,
+      "authenti8_request_admin_change", { userId: requester, action: "REFUND_CREDITS",
+        targetId: fixture.organizationId, reason: "short", payload: { amount: 2 } });
+    assert.equal(denied.created, false);
+    const requested = await rpc<{ created: boolean; requestId: string }>(fixture.database,
+      "authenti8_request_admin_change", { userId: requester, action: "REFUND_CREDITS",
+        targetId: fixture.organizationId, reason: "Correct a verified billing refund",
+        payload: { amount: 2 } });
+    assert.equal(requested.created, true);
+    const selfApproval = await rpc<{ applied: boolean; reason: string }>(fixture.database,
+      "authenti8_approve_admin_change", { userId: requester, requestId: requested.requestId });
+    assert.deepEqual(selfApproval, { applied: false, reason: "SECOND_ADMIN_REQUIRED" });
+    const approved = await rpc<{ applied: boolean }>(fixture.database,
+      "authenti8_approve_admin_change", { userId: approver, requestId: requested.requestId });
+    assert.equal(approved.applied, true);
+    const audit = await fixture.database.query<{ count: number }>(`SELECT count(*)::INTEGER count
+      FROM audit_logs WHERE action = 'REFUND_CREDITS' AND previous_value IS NOT NULL
+        AND new_value IS NOT NULL`);
+    assert.equal(audit.rows[0]!.count, 1);
+    const dispute = await exerciseDisputeReview(fixture, requester);
+    assert.equal(dispute.reviewed.updated, true);
+    assert.equal(dispute.overview.disputes.find((item) => item.id === dispute.disputeId)?.status,
+      "REVIEWED");
+    assert.equal(dispute.overview.organizations.find((item) => item.id === fixture.organizationId)
+      ?.openDisputes, 1);
+    assert.equal(dispute.resolved.updated, true);
+    assert.equal(dispute.auditCount, 1);
+    await assert.rejects(fixture.database.query("UPDATE audit_logs SET reason = 'changed'"));
+  } finally { await fixture.database.close(); }
+});
+test("retention anonymizes identity, removes evidence, and blocks report access", async () => {
+  const fixture = await reportingFixture();
+  try {
+    const interviewId = await insertInterview(fixture.database, fixture.organizationId,
+      "Expired Candidate", "expired@candidate.test", new Date(Date.now() - 120_000),
+      "MEETING_COMPLETED");
+    const sessionId = await seedCandidateIdentity(fixture.database, interviewId);
+    await fixture.database.query(`INSERT INTO candidate_disputes(interview_id,reason)
+      VALUES ($1,'Personal dispute details')`, [interviewId]);
+    const report = await fixture.database.query<{ id: string }>(`INSERT INTO reports(interview_id, detection_result, monitoring_status, coverage_percentage, snapshot)
+      VALUES ($1,'NONE','COMPLETED',100,'{}') RETURNING id`, [interviewId]);
+    await fixture.database.query(`UPDATE interviews SET report_id = $2,
+      report_due_at = now() - interval '1 second', deletion_due_at = now() - interval '1 second'
+      WHERE id = $1`, [interviewId, report.rows[0]!.id]);
+    const result = await rpc<{ processed: number }>(fixture.database, "authenti8_run_retention");
+    assert.equal(result.processed, 1);
+    const row = await fixture.database.query<{ email: string; deleted: boolean }>(`SELECT
+      candidate_email email, data_deleted_at IS NOT NULL deleted FROM interviews WHERE id = $1`,
+    [interviewId]);
+    assert.match(row.rows[0]!.email, /^deleted\+/);
+    assert.equal(row.rows[0]!.deleted, true);
+    const leaked = await fixture.database.query<{ count: number }>(`SELECT
+      (SELECT count(*) FROM verification_sessions WHERE interview_id = $1
+        AND candidate_email = 'expired@candidate.test')
+      + (SELECT count(*) FROM candidate_verification_tokens WHERE interview_id = $1
+        AND candidate_email = 'expired@candidate.test')
+      + (SELECT count(*) FROM candidate_consents WHERE interview_id = $1
+        AND (candidate_email = 'expired@candidate.test' OR ip_address IS NOT NULL
+          OR user_agent IS NOT NULL))
+      + (SELECT count(*) FROM interview_participants WHERE interview_id = $1 AND is_external)
+      + (SELECT count(*) FROM candidate_devices WHERE verification_session_id = $2)
+      + (SELECT count(*) FROM candidate_disputes WHERE interview_id = $1) count`,
+    [interviewId, sessionId]);
+    assert.equal(Number(leaked.rows[0]!.count), 0);
+    const reports = await fixture.database.query("SELECT id FROM reports WHERE interview_id = $1", [interviewId]);
+    assert.equal(reports.rows.length, 0);
+    const detail = await rpc(fixture.database, "authenti8_meeting_detail",
+      { userId: fixture.userId, interviewId });
+    assert.equal(detail, null);
+  } finally { await fixture.database.close(); }
+});
+test("accuracy results block false positives and operational failures back off", async () => {
+  const fixture = await reportingFixture();
+  try {
+    const interviewId = randomUUID();
+    await insertInterview(fixture.database, fixture.organizationId, "Recovery Candidate",
+      "recovery@candidate.test", new Date(), "MEETING_COMPLETED", interviewId);
+    const failed = await rpc<{ passed: boolean; falsePositives: number }>(fixture.database,
+      "authenti8_record_accuracy_run", { platform: "WINDOWS", osVersion: "Windows 11",
+        agentVersion: "1.0.0", rulePackVersion: "pack-1", commitSha: "abc",
+        artifactDigest: "a".repeat(64), attestationDigest: "1".repeat(64),
+        evidenceSource: "NATIVE_E2E", attestationProvider: "HMAC_SHA256",
+        scenarioContractVersion: "pilot-v1",
+        scenarios: accuracyScenarios("WINDOWS", "google-meet", "CONFIRMED") });
+    assert.equal(failed.passed, false);
+    assert.equal(failed.falsePositives, 1);
+    await assertTamperedAccuracyRejected(fixture.database);
+    const recordedId = await assertOperationalFailureRecovery(fixture, interviewId);
+    const queued = await fixture.database.query<{ count: number }>(`SELECT count(*) FROM report_generation_jobs
+      WHERE interview_id = $1 AND status = 'PENDING'`, [interviewId]);
+    assert.equal(Number(queued.rows[0]!.count), 1);
+    await rpc(fixture.database, "authenti8_process_reports");
+    const done = await fixture.database.query<{ status: string }>(
+      "SELECT status FROM operational_failures WHERE id = $1", [recordedId]);
+    assert.equal(done.rows[0]!.status, "RESOLVED");
+  } finally { await fixture.database.close(); }
+});
+test("pilot accuracy is bound to the exact production agent, commit, and active pack", async () => {
+  const fixture = await reportingFixture();
+  try {
+    await fixture.database.query("INSERT INTO platform_administrators(user_id) VALUES ($1)",
+      [fixture.userId]);
+    await configureUnrelatedPilotCalendar(fixture);
+    for (const [platform, version] of [["WINDOWS", "win-pack"], ["MACOS", "mac-pack"],
+      ["CHROME", "chrome-pack"]]) {
+      await fixture.database.query(`INSERT INTO detection_rule_packs(platform, version, rules,
+        signed_payload, signature, expires_at, published_by) VALUES
+        ($1,$2,'[]','{}','signature',now()+interval '1 day',$3)`,
+      [platform, version, fixture.userId]);
+    }
+    await registerPilotAgents(fixture);
+    const windowsScenarios = accuracyScenarios("WINDOWS");
+    await rpc(fixture.database, "authenti8_record_accuracy_run", { platform: "WINDOWS",
+      osVersion: "Windows 11", agentVersion: "1.0.0", rulePackVersion: "win-pack",
+      commitSha: "win-old", artifactDigest: "b".repeat(64),
+      attestationDigest: "2".repeat(64), evidenceSource: "NATIVE_E2E",
+      attestationProvider: "HMAC_SHA256", scenarioContractVersion: "pilot-v1",
+      scenarios: windowsScenarios });
+    await rpc(fixture.database, "authenti8_record_accuracy_run", { platform: "MACOS",
+      osVersion: "macOS 15", agentVersion: "2.0.0", rulePackVersion: "mac-pack",
+      commitSha: "mac-current", artifactDigest: "c".repeat(64),
+      attestationDigest: "3".repeat(64), evidenceSource: "NATIVE_E2E",
+      attestationProvider: "HMAC_SHA256", scenarioContractVersion: "pilot-v1",
+      scenarios: accuracyScenarios("MACOS") });
+    const stale = await rpc<{ checks: Array<{ key: string; passed: boolean }> }>(fixture.database,
+      "authenti8_pilot_readiness", { userId: fixture.userId });
+    assert.equal(stale.checks.find((check) => check.key === "accuracy-windows")?.passed, false);
+    await assertWrongArtifactBlocked(fixture, windowsScenarios);
+    await rpc(fixture.database, "authenti8_record_accuracy_run", { platform: "WINDOWS",
+      osVersion: "Windows 11", agentVersion: "2.0.0", rulePackVersion: "win-pack",
+      commitSha: "win-current", artifactDigest: "d".repeat(64),
+      attestationDigest: "4".repeat(64), evidenceSource: "NATIVE_E2E",
+      attestationProvider: "HMAC_SHA256", scenarioContractVersion: "pilot-v1",
+      scenarios: windowsScenarios });
+    const current = await rpc<{ checks: Array<{ key: string; passed: boolean }> }>(fixture.database,
+      "authenti8_pilot_readiness", { userId: fixture.userId });
+    assert.equal(current.checks.find((check) => check.key === "accuracy-windows")?.passed, true);
+    assert.equal(current.checks.find((check) => check.key === "accuracy-macos")?.passed, true);
+    const conflict = await rpc<{ registered: boolean; reason?: string }>(fixture.database,
+      "authenti8_register_application_version", { application: "WINDOWS_AGENT",
+        platform: "WINDOWS", version: "2.0.0", releaseChannel: "PRODUCTION",
+        minimumSupported: true, commitSha: "different-build", artifactDigest: "d".repeat(64) });
+    assert.deepEqual(conflict, { registered: false, reason: "VERSION_COMMIT_CONFLICT" });
+    await assertPilotCalendarScope(fixture, current);
+  } finally { await fixture.database.close(); }
+});
 type MeetingsPage = { items: Array<{ candidateEmail: string }>; nextCursor: string | null };
-type Fixture = { database: PGlite; userId: string; organizationId: string;
-  otherOrganizationId: string };
-
-async function reportingFixture(): Promise<Fixture> {
-  const database = new PGlite({ extensions: { pgcrypto } });
-  await database.exec("CREATE SCHEMA auth; CREATE TABLE auth.users(id UUID PRIMARY KEY)");
-  await database.exec(loadMigrations());
-  const owner = await rpc<{ id: string }>(database, "authenti8_create_user", {
-    email: "owner@reporting.test", fullName: "Reporting Owner",
-  });
-  const other = await rpc<{ id: string }>(database, "authenti8_create_user", {
-    email: "other@reporting.test", fullName: "Other Owner",
-  });
-  await database.query("UPDATE users SET email_verified_at = now() WHERE id IN ($1,$2)",
-    [owner.id, other.id]);
-  const first = await rpc<{ organization: { id: string } }>(database,
-    "authenti8_create_organization", organizationInput(owner.id, "reporting.test"));
-  const second = await rpc<{ organization: { id: string } }>(database,
-    "authenti8_create_organization", organizationInput(other.id, "other-reporting.test"));
-  return { database, userId: owner.id, organizationId: first.organization.id,
-    otherOrganizationId: second.organization.id };
+async function registerPilotAgents(fixture: ReportingFixture) {
+  for (const input of [
+    { application: "WINDOWS_AGENT", platform: "WINDOWS", version: "2.0.0",
+      releaseChannel: "PRODUCTION", minimumSupported: true, commitSha: "win-current",
+      artifactDigest: "d".repeat(64) },
+    { application: "MACOS_AGENT", platform: "MACOS", version: "2.0.0",
+      releaseChannel: "PRODUCTION", minimumSupported: true, commitSha: "mac-current",
+      artifactDigest: "c".repeat(64) },
+  ]) await rpc(fixture.database, "authenti8_register_application_version", input);
 }
-
-async function insertInterview(database: PGlite, organizationId: string, candidateName: string,
-  candidateEmail: string, start: Date, status = "PROTECTED") {
-  const id = randomUUID();
-  await database.query(`INSERT INTO interviews(id, organization_id, google_event_id,
-    google_calendar_id, google_meet_code, google_meet_url, candidate_email, candidate_name,
-    organizer_email, title, scheduled_start, scheduled_end, status, protection_status)
-    VALUES ($1,$2,$3,'primary',$4,$5,$6,$7,'interviewer@reporting.test','Engineering interview',
-      $8,$9,$10,'RESERVED')`, [id, organizationId, `event-${id}`, id.slice(0, 11),
-    `https://meet.google.com/${id.slice(0, 11)}`, candidateEmail, candidateName,
-    start, new Date(start.getTime() + 30 * 60_000), status]);
-  return id;
+async function assertWrongArtifactBlocked(fixture: ReportingFixture,
+  scenarios: ReturnType<typeof accuracyScenarios>) {
+  await rpc(fixture.database, "authenti8_record_accuracy_run", { platform: "WINDOWS",
+    osVersion: "Windows 11", agentVersion: "2.0.0", rulePackVersion: "win-pack",
+    commitSha: "win-current", artifactDigest: "e".repeat(64),
+    attestationDigest: "5".repeat(64), evidenceSource: "NATIVE_E2E",
+    attestationProvider: "HMAC_SHA256", scenarioContractVersion: "pilot-v1", scenarios });
+  const readiness = await rpc<{ checks: Array<{ key: string; passed: boolean }> }>(fixture.database,
+    "authenti8_pilot_readiness", { userId: fixture.userId });
+  assert.equal(readiness.checks.find((item) => item.key === "accuracy-windows")?.passed, false);
 }
-
-function organizationInput(userId: string, domain: string) {
-  return { userId, name: domain.split(".")[0], domain, jobRole: "Founder", timezone: "UTC",
-    companySize: "1-10", expectedMonthlyInterviews: 10 };
+async function assertOperationalFailureRecovery(fixture: ReportingFixture, interviewId: string) {
+  const recorded = await rpc<{ id: string }>(fixture.database,
+    "authenti8_record_operational_failure", { component: "REPORT_QUEUE",
+      organizationId: fixture.organizationId, interviewId,
+      idempotencyKey: "report-queue:test", errorCode: "TIMEOUT",
+      safeMessage: "Report worker failed Authorization=Bearer exposed-secret token=raw-token",
+      context: { token: "must-not-persist", sessionToken: "session-secret", queueDelayMs: 1000,
+        upstreamError: "request failed token=scalar-secret",
+        request: { Authorization: "Bearer nested-secret", api_key: "nested-key" } } });
+  const recovery = await rpc<{ retriesScheduled: number }>(fixture.database,
+    "authenti8_recover_operations");
+  assert.equal(recovery.retriesScheduled, 1);
+  const context = await fixture.database.query<{ value: { token: string; sessionToken: string;
+    request: { Authorization: string; api_key: string } }; message: string; status: string }>(
+    `SELECT context value,safe_message message,status FROM operational_failures WHERE id = $1`,
+    [recorded.id]);
+  assert.deepEqual(context.rows[0]!.value, { token: "[REDACTED]", sessionToken: "[REDACTED]",
+    queueDelayMs: 1000, upstreamError: "request failed token=[REDACTED]",
+    request: { Authorization: "[REDACTED]", api_key: "[REDACTED]" } });
+  assert.doesNotMatch(context.rows[0]!.message, /exposed-secret|raw-token/);
+  assert.equal(context.rows[0]!.status, "RETRYING");
+  const leased = await fixture.database.query<{ lease: string; available: string }>(
+    `SELECT lease_until::TEXT lease,available_at::TEXT available
+      FROM operational_failures WHERE id = $1`, [recorded.id]);
+  await rpc(fixture.database, "authenti8_record_operational_failure", { component: "REPORT_QUEUE",
+    organizationId: fixture.organizationId, interviewId, idempotencyKey: "report-queue:test",
+    errorCode: "TIMEOUT", safeMessage: "Duplicate report failure" });
+  const preserved = await fixture.database.query<{ status: string; lease: string; available: string }>(
+    `SELECT status,lease_until::TEXT lease,available_at::TEXT available
+      FROM operational_failures WHERE id = $1`, [recorded.id]);
+  assert.deepEqual(preserved.rows[0], { status: "RETRYING", lease: leased.rows[0]!.lease,
+    available: leased.rows[0]!.available });
+  return recorded.id;
 }
-
-function loadMigrations(include: (file: string) => boolean = () => true) {
-  const directory = resolve(process.cwd(), "../../infrastructure/postgres");
-  return readdirSync(directory).filter((file) => /^\d+.*\.sql$/.test(file) && include(file)).sort()
-    .map((file) => readFileSync(resolve(directory, file), "utf8")).join("\n");
+function accuracyScenarios(platform: "WINDOWS" | "MACOS", changedId?: string,
+  changedActual?: "CONFIRMED" | "NOT_DETECTED") {
+  const positive = platform === "WINDOWS" ? ["cluely-active", "parakeet-active",
+    "supported-extension-active", "hidden-overlay", "capture-excluded-overlay", "virtual-audio-ai"]
+    : ["cluely-active", "parakeet-active", "hidden-overlay", "virtual-audio-ai"];
+  const negative = platform === "WINDOWS" ? ["google-meet", "slack-teams-zoom", "notion-vscode",
+    "recorders-password-managers", "accessibility-noise-removal", "benign-virtual-audio"]
+    : ["meet-slack-teams-zoom", "notion-vscode", "recorders-password-managers",
+      "accessibility-noise-removal", "benign-virtual-audio"];
+  const scenario = (id: string, expected: "CONFIRMED" | "NOT_DETECTED") => ({ id, expected,
+    actual: id === changedId ? changedActual : expected, coverageHealthy: true });
+  return [...positive.map((id) => scenario(id, "CONFIRMED")), ...negative.map((id) =>
+    scenario(id, "NOT_DETECTED"))];
 }
-
-async function rpc<T>(database: PGlite, name: string, input: Record<string, unknown> = {}) {
-  const result = await database.query<{ result: T }>(`SELECT ${name}($1::jsonb) AS result`,
-    [JSON.stringify(input)]);
-  return result.rows[0]!.result;
+async function assertTamperedAccuracyRejected(database: PGlite) {
+  const scenarios = accuracyScenarios("WINDOWS"); scenarios[0]!.expected = "NOT_DETECTED";
+  const result = await rpc<{ recorded: boolean; reason: string }>(database, "authenti8_record_accuracy_run", { platform: "WINDOWS", osVersion: "Windows 11", agentVersion: "tampered", rulePackVersion: "pack-1", commitSha: "tampered", artifactDigest: "f".repeat(64), attestationDigest: "6".repeat(64), evidenceSource: "NATIVE_E2E", attestationProvider: "HMAC_SHA256", scenarioContractVersion: "pilot-v1", scenarios });
+  assert.deepEqual(result, { recorded: false, reason: "INCOMPLETE_SCENARIO_SET" });
+}
+async function configureUnrelatedPilotCalendar(fixture: ReportingFixture) {
+  await fixture.database.query(`INSERT INTO pilot_partners(organization_id, enabled_by)
+    VALUES ($1,$2)`, [fixture.organizationId, fixture.userId]);
+  await insertGoogleIntegration(fixture, fixture.otherOrganizationId, "unrelated-calendar");
+}
+async function assertPilotCalendarScope(fixture: ReportingFixture,
+  readiness: { checks: Array<{ key: string; passed: boolean }> }) {
+  assert.equal(readiness.checks.find((check) => check.key === "calendar-connected")?.passed, false);
+  await insertGoogleIntegration(fixture, fixture.organizationId, "pilot-calendar");
+  const connected = await rpc<typeof readiness>(fixture.database,
+    "authenti8_pilot_readiness", { userId: fixture.userId });
+  assert.equal(connected.checks.find((check) => check.key === "calendar-connected")?.passed, true);
+  const interviewId = await insertInterview(fixture.database, fixture.organizationId,
+    "Dead Letter Candidate", "dead-letter@candidate.test", new Date(), "MEETING_COMPLETED");
+  await fixture.database.query(`INSERT INTO report_generation_jobs(interview_id, status, attempts, available_at)
+    VALUES ($1,'FAILED',5,now())`, [interviewId]);
+  const blocked = await rpc<typeof readiness>(fixture.database,
+    "authenti8_pilot_readiness", { userId: fixture.userId });
+  assert.equal(blocked.checks.find((check) => check.key === "no-open-dead-letters")?.passed, false);
+}
+function insertGoogleIntegration(fixture: ReportingFixture, organizationId: string, subject: string) {
+  return fixture.database.query(`INSERT INTO google_integrations(organization_id,
+    connected_user_id, google_subject, connected_email, encrypted_refresh_token, status)
+    VALUES ($1,$2,$3,'calendar@pilot.test','encrypted','ACTIVE')`,
+  [organizationId, fixture.userId, subject]);
 }

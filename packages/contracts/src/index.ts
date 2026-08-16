@@ -129,6 +129,26 @@ export type BillingHistory = {
     currency: string | null; createdAt: string }>;
 };
 
+export type AdminOrganization = {
+  id: string; name: string; domain: string; status: string; subscriptionStatus: string | null;
+  plan: string | null; calendarError: string | null; openDisputes: number;
+  activeAgents: number; confirmedDetections: number;
+};
+export type AdminOverview = { organizations: AdminOrganization[];
+  rulePacks: Array<{ platform: string; version: string; expiresAt: string; disabledAt: string | null }>;
+  rules: Array<{ id: string; ruleKey: string; platform: string; version: number;
+    confidence: string; status: string; enabled: boolean }>;
+  applicationVersions: Array<{ application: string; platform: string; version: string;
+    release_channel: string; source_commit_sha: string; artifact_digest: string }>;
+  pendingChanges: Array<{ id: string; action: "DISABLE_RULE" | "REFUND_CREDITS";
+    targetId: string; reason: string; requestedBy: string; payload: Record<string, unknown>;
+    createdAt: string }>;
+  disputes: Array<{ id: string; interviewId: string; reason: string; status: string;
+    createdAt: string }> };
+export type PilotReadiness = {
+  ready: boolean; checkedAt: string; checks: Array<{ key: string; passed: boolean }>;
+};
+
 export type CandidateVerification = {
   valid: true;
   organizationName: string;
