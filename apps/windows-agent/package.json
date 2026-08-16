@@ -9,11 +9,11 @@
     "authenti8-verify": "dist/cli.js"
   },
   "scripts": {
-    "prebuild": "npm run build -w @authenti8/event-schemas",
+    "prebuild": "npm run build -w @authenti8/event-schemas && npm run build -w @authenti8/security && npm run build -w @authenti8/detection-rules",
     "build": "tsc -p tsconfig.json",
-    "prepackage:windows": "npm run build -w @authenti8/event-schemas && npm run build -w @authenti8/security",
+    "prepackage:windows": "npm run build -w @authenti8/event-schemas && npm run build -w @authenti8/security && npm run build -w @authenti8/detection-rules",
     "package:windows": "node scripts/package-windows.mjs",
-    "pretest": "npm run build -w @authenti8/event-schemas && node -e \"require('node:fs').rmSync('.test-dist',{recursive:true,force:true})\"",
+    "pretest": "npm run build -w @authenti8/event-schemas && npm run build -w @authenti8/security && npm run build -w @authenti8/detection-rules && node -e \"require('node:fs').rmSync('.test-dist',{recursive:true,force:true})\"",
     "test": "tsc -p tsconfig.test.json && node --test .test-dist/test/*.test.js"
   },
   "dependencies": {
