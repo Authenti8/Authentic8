@@ -30,6 +30,20 @@ test("production requires a dedicated accuracy upload secret", () => {
   });
 });
 
+test("production requires a sales notification recipient", () => {
+  withProductionEnvironment(() => {
+    delete process.env.SALES_NOTIFICATION_EMAIL;
+    assert.throws(() => loadConfig(), /SALES_NOTIFICATION_EMAIL/);
+  });
+});
+
+test("production requires an explicit founder bootstrap identity", () => {
+  withProductionEnvironment(() => {
+    delete process.env.PLATFORM_FOUNDER_EMAIL;
+    assert.throws(() => loadConfig(), /PLATFORM_FOUNDER_EMAIL/);
+  });
+});
+
 test("production requires a Supabase secret key", () => {
   withProductionEnvironment(() => {
     delete process.env.SUPABASE_SECRET_KEY;
@@ -136,6 +150,7 @@ test("configured Dodo webhooks require a strong Standard Webhooks secret", () =>
 function withProductionEnvironment(run: () => void) {
   const names = [
     "NODE_ENV", "SMTP_HOST", "SUPABASE_URL", "SUPABASE_SECRET_KEY",
+    "SALES_NOTIFICATION_EMAIL", "PLATFORM_FOUNDER_EMAIL",
     "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_PUBLISHABLE_KEY",
     "SUPABASE_ANON_KEY", "APP_ORIGIN", "AUTH_ORIGIN", "ONBOARDING_ORIGIN",
     "DASHBOARD_ORIGIN", "PAYMENT_ORIGIN", "SESSION_COOKIE_DOMAIN",
@@ -148,6 +163,8 @@ function withProductionEnvironment(run: () => void) {
   const previous = new Map(names.map((name) => [name, process.env[name]]));
   process.env.NODE_ENV = "production";
   process.env.SMTP_HOST = "smtp.example.com";
+  process.env.SALES_NOTIFICATION_EMAIL = "sales@authenti8.example";
+  process.env.PLATFORM_FOUNDER_EMAIL = "founder@authenti8.example";
   process.env.SUPABASE_URL = "https://project.supabase.co";
   process.env.SUPABASE_SECRET_KEY = "test-secret-key";
   process.env.APP_ORIGIN = "https://app.authenti8.example";

@@ -3,12 +3,13 @@ import { Controller, Headers, Inject, Param, ParseUUIDPipe, Post, Req,
 import type { AuthenticatedRequest } from "../auth/auth.types.js";
 import { validBearerToken } from "../auth/bearer.js";
 import { SessionGuard } from "../auth/session.guard.js";
+import { ActiveOrganizationGuard } from "../auth/active-organization.guard.js";
 import { loadConfig } from "../config.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import { InterviewLifecycleService } from "./interview-lifecycle.service.js";
 
 @Controller("meetings")
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, ActiveOrganizationGuard)
 export class MonitoringController {
   constructor(@Inject(InterviewLifecycleService) private readonly lifecycle: InterviewLifecycleService) {}
 

@@ -36,6 +36,8 @@ export function loadConfig() {
     throw new Error("Missing required production environment variable: SMTP_HOST");
   }
   const mailEncryptionKey = encryptionKey(nodeEnv);
+  const salesNotificationEmail = productionEmail("SALES_NOTIFICATION_EMAIL", nodeEnv);
+  const platformFounderEmail = productionEmail("PLATFORM_FOUNDER_EMAIL", nodeEnv);
   return {
     nodeEnv,
     isProduction: nodeEnv === "production",
@@ -55,7 +57,17 @@ export function loadConfig() {
     dodo,
     smtp,
     mailEncryptionKey,
+    salesNotificationEmail,
+    platformFounderEmail,
   };
+}
+
+function productionEmail(name: string, nodeEnv: string) {
+  const value = process.env[name]?.trim().toLowerCase() ?? "";
+  if (nodeEnv === "production" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    throw new Error(`${name} must be a valid production email address`);
+  }
+  return value;
 }
 
 function internalSecret(name: string, nodeEnv: string) {

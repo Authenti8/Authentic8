@@ -19,7 +19,7 @@ export default async function IntegrationsPage({ searchParams }: PageProps<"/das
     getServerApi<IntegrationSummary>("/integrations"), requireSession(), searchParams,
   ]);
   const connected = integration.status === "ACTIVE";
-  const canManage = ["OWNER", "ADMIN"].includes(session.organization?.role ?? "");
+  const canManage = ["OWNER", "MANAGER"].includes(session.organization?.role ?? "");
   const notice = integrationNotice(query.connected, query.error, query.warning);
   return (
     <div className="dashboard-page">

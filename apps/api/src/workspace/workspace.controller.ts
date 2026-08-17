@@ -7,11 +7,12 @@ import type { DashboardOverview, MeetingDetail, MeetingsPage,
 import type { AuthenticatedRequest } from "../auth/auth.types.js";
 import { validBearerToken } from "../auth/bearer.js";
 import { SessionGuard } from "../auth/session.guard.js";
+import { ActiveOrganizationGuard } from "../auth/active-organization.guard.js";
 import { loadConfig } from "../config.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 
 @Controller()
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, ActiveOrganizationGuard)
 export class WorkspaceController {
   constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService) {}
 

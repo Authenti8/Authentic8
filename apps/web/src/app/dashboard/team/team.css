@@ -1,0 +1,23 @@
+.team-page { display: grid; gap: 20px; }.team-role-note, .team-panel { border: 1px solid #dce5f0;
+  border-radius: 18px; background: white; }.team-role-note { display: flex; gap: 14px; padding: 18px 20px; }
+.team-role-note svg, .team-panel-title > svg { color: #0969f5; flex: 0 0 auto; }
+.team-role-note p, .team-panel-title p { margin: 4px 0 0; color: #687487; }
+.team-panel { padding: 24px; }.team-panel-title { display: flex; gap: 13px; align-items: start; }
+.team-panel-title h2 { margin: 0; font-size: 20px; }.team-invite { display: grid;
+  grid-template-columns: 1fr 180px auto; gap: 10px; margin-top: 20px; }
+.team-invite input, .team-invite select, .team-list select { min-height: 42px; border: 1px solid #d6e0ec;
+  border-radius: 10px; padding: 0 12px; background: white; }.team-invite button, .team-list button {
+  border: 0; border-radius: 10px; padding: 0 17px; background: #0969f5; color: white;
+  font-weight: 750; cursor: pointer; }.team-list { margin-top: 18px; }.team-list article {
+  display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 14px; align-items: center;
+  border-top: 1px solid #e5ebf2; padding: 15px 0; }.team-list article > div:nth-child(2) {
+  display: grid; gap: 3px; }.team-list article span { color: #687487; font-size: 13px; }
+.member-avatar { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px;
+  background: #edf5ff; color: #0969f5; font-weight: 850; }.team-list article > b { font-size: 12px; }
+.member-status { border-radius: 999px; padding: 5px 9px; background: #eef8f3; color: #18734b!important;
+  font-size: 10px!important; font-weight: 850; }.member-status.suspended { background: #fff4df;
+  color: #986314!important; }.team-list form { display: flex; gap: 7px; }.team-list button { min-height: 38px; }
+.invite-list article { display: grid; grid-template-columns: 1fr auto auto; gap: 20px;
+  border-top: 1px solid #e5ebf2; padding: 14px 0; }.invite-list time { color: #687487; }
+@media (max-width: 780px) { .team-invite, .team-list article { grid-template-columns: 1fr; }
+  .team-invite button { min-height: 42px; }.team-list form { flex-wrap: wrap; } }

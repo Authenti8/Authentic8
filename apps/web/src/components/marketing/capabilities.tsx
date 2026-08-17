@@ -10,7 +10,7 @@ const capabilities = [
 
 export function Capabilities() {
   return (
-    <section className="section capabilities-section">
+    <section className="section capabilities-section" id="capabilities">
       <div className="container capabilities-layout">
         <Reveal>
           <span className="eyebrow">A higher standard</span>

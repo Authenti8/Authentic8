@@ -5,6 +5,7 @@ import { RecruiterExtensionBridge } from "@/components/dashboard/recruiter-exten
 import { getServerApi, requireSession } from "@/lib/server-api";
 import "./dashboard.css";
 import "./commerce.css";
+import "./team/team.css";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const session = await requireSession();

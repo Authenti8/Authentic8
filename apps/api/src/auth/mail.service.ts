@@ -10,7 +10,7 @@ import { loadConfig } from "../config.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import { decryptMailToken, encryptMailToken } from "./mail-crypto.js";
 
-export type MailKind = "verify" | "reset" | "candidate_verification";
+export type MailKind = "verify" | "reset" | "candidate_verification" | "organization_invitation";
 export type OutboxPayload = {
   recipient: string; kind: MailKind; encryptedToken: string;
   initializationVector: string; authenticationTag: string;
@@ -19,6 +19,9 @@ export type OutboxPayload = {
 type OutboxRow = OutboxPayload & { id: string; attempts: number };
 type NotificationOutboxRow = { id: string; attempts: number; recipient: string;
   title: string; message: string; linkPath: string | null };
+type CommercialOutboxRow = { id: string; attempts: number; recipient: string;
+  kind: "LEAD_CONFIRMATION" | "SALES_NOTIFICATION" | "FOLLOW_UP_REMINDER"; leadType: string;
+  fullName: string; email: string; companyName: string; followUpDueAt?: string | null };
 const smtpTimeouts = {
   connectionTimeout: 5_000, greetingTimeout: 5_000,
   socketTimeout: 25_000, dnsTimeout: 5_000,
@@ -65,10 +68,55 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   async drainPending(limit = 10) {
-    const [links, notifications] = await Promise.all([
+    const [links, notifications, commercial] = await Promise.all([
       this.drainOutbox(limit), this.drainNotificationOutbox(limit),
+      this.drainCommercialOutbox(limit),
     ]);
-    return links + notifications;
+    return links + notifications + commercial;
+  }
+
+  private async drainCommercialOutbox(limit: number) {
+    const claims = await Promise.allSettled(Array.from({ length: limit }, () =>
+      this.supabase.rpc<CommercialOutboxRow | null>("authenti8_claim_commercial_email")));
+    const messages = claims.flatMap((claim) => claim.status === "fulfilled" && claim.value
+      ? [claim.value] : []);
+    await Promise.allSettled(messages.map((message) => this.deliverCommercial(message)));
+    return messages.length;
+  }
+
+  private async deliverCommercial(message: CommercialOutboxRow) {
+    try {
+      const eligible = await this.supabase.rpc<boolean>(
+        "authenti8_validate_commercial_email", claimInput(message));
+      if (!eligible) return;
+      await this.sendCommercial(message);
+      await this.supabase.rpc("authenti8_complete_commercial_email", claimInput(message));
+    } catch (error) {
+      await this.supabase.rpc("authenti8_fail_commercial_email", { ...claimInput(message),
+        error: error instanceof Error ? error.message : "Delivery failed" });
+    }
+  }
+
+  private async sendCommercial(message: CommercialOutboxRow) {
+    if (!this.config.smtp.host) {
+      if (this.config.isProduction) throw new ServiceUnavailableException("Email delivery is not configured.");
+      return;
+    }
+    const transport = nodemailer.createTransport({ host: this.config.smtp.host,
+      port: this.config.smtp.port, secure: this.config.smtp.secure, ...smtpTimeouts,
+      auth: this.config.smtp.user ? { user: this.config.smtp.user,
+        pass: this.config.smtp.password } : undefined });
+    const sales = message.kind === "SALES_NOTIFICATION";
+    const reminder = message.kind === "FOLLOW_UP_REMINDER";
+    const subject = reminder ? `Follow up with ${message.companyName}` : sales
+      ? `${message.leadType === "DEMO_REQUEST" ? "Demo request" : "Waitlist"} · ${message.companyName}`
+      : "We received your Authenti8 request";
+    const text = reminder ? `Follow-up is due for ${message.fullName} (${message.email}) at ${
+      message.companyName}. Due: ${message.followUpDueAt ?? "now"}.` : sales
+      ? `${message.fullName} (${message.email}) from ${message.companyName} submitted ${message.leadType}.`
+      : `Hi ${message.fullName},\n\nThank you for your interest in Authenti8. Our team has received your request and will follow up when appropriate.`;
+    await transport.sendMail({ from: this.config.smtp.from, to: message.recipient, subject,
+      text, html: `<p>${escapeHtml(text).replaceAll("\n", "<br>")}</p>` });
   }
 
   private async drainNotificationOutbox(limit: number) {
@@ -219,6 +267,9 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
     if (kind === "candidate_verification") {
       return `${this.config.appOrigin}/candidate/verify#token=${encodeURIComponent(token)}`;
     }
+    if (kind === "organization_invitation") {
+      return `${this.config.authOrigin}/accept-invite?token=${encodeURIComponent(token)}`;
+    }
     const path = kind === "verify" ? "/verify-email"
       : "/reset-password";
     return `${this.config.authOrigin}${path}?token=${encodeURIComponent(token)}`;
@@ -241,6 +292,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
 function mailLabel(kind: MailKind) {
   if (kind === "verify") return "Verify your email";
   if (kind === "reset") return "Reset your password";
+  if (kind === "organization_invitation") return "Accept your Authenti8 organization invitation";
   return "Review your interview verification and consent";
 }
 

@@ -1,5 +1,4 @@
 import { ArrowRight, Check, Radio, ShieldAlert } from "lucide-react";
-import Link from "next/link";
 
 export function Hero() {
   return (
@@ -35,10 +34,10 @@ export function Hero() {
             clear integrity timeline—flagging cheating tools as they appear.
           </p>
           <div className="hero-actions">
-            <Link className="button-primary" href="/signup">
-              Protect an interview <ArrowRight size={17} />
-            </Link>
-            <a className="button-secondary" href="#how">See how it works</a>
+            <a className="button-primary" href="#book-demo">
+              Book a demo <ArrowRight size={17} />
+            </a>
+            <a className="button-secondary" href="#waitlist">Join the waitlist</a>
           </div>
         </div>
       </div>

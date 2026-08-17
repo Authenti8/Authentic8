@@ -18,7 +18,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
   ]);
   return <main className="admin-page"><header><div><span>Internal operations</span>
     <h1>Authenti8 control room</h1><p>Audited support access, platform health, and pilot gates.</p>
-    </div><Link href="/dashboard">Return to workspace</Link></header>
+    </div><div className="admin-header-links"><Link href="/commercial">Founder & sales</Link>
+      <Link href="/dashboard">Return to workspace</Link></div></header>
     <section className={`readiness ${readiness.ready ? "ready" : "blocked"}`}>
       <ShieldAlert size={24} /><div><span>Pilot release</span><h2>
         {readiness.ready ? "Ready for controlled pilot" : "Release gates are blocked"}</h2></div>

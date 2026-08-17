@@ -1,0 +1,30 @@
+.contact-section { background: #f4f8fe; }
+.contact-heading { display: grid; grid-template-columns: 1fr 0.9fr; gap: 80px; align-items: end; }
+.contact-heading .section-copy { margin: 0; }
+.contact-promises { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 28px; }
+.contact-promises span { display: inline-flex; align-items: center; gap: 7px; color: #33425a;
+  font-size: 13px; font-weight: 700; }
+.contact-promises svg { color: var(--blue); }
+.contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 58px; }
+.lead-card { scroll-margin-top: 24px; border: 1px solid #c9ddf7; border-radius: 28px; padding: 38px;
+  background: white; box-shadow: 0 22px 60px rgba(27, 73, 132, 0.09); }
+.waitlist-card { background: linear-gradient(145deg, #fff, #eef6ff); }
+.lead-card > span { color: var(--blue); font-size: 11px; font-weight: 850; letter-spacing: .12em;
+  text-transform: uppercase; }
+.lead-card h3 { margin: 14px 0 10px; font-size: 30px; letter-spacing: -.045em; }
+.lead-card > p { min-height: 52px; margin: 0 0 28px; color: var(--muted); line-height: 1.6; }
+.lead-form { display: grid; gap: 18px; }
+.lead-fields { display: grid; gap: 13px; }
+.lead-fields label { display: grid; gap: 7px; color: #27344a; font-size: 12px; font-weight: 750; }
+.lead-fields input { width: 100%; min-height: 48px; border: 1px solid #d4e0ef; border-radius: 12px;
+  padding: 0 14px; background: #fbfdff; color: var(--ink); }
+.lead-fields input:focus { border-color: var(--blue); outline: 3px solid rgba(9,105,245,.12); }
+.lead-form button { width: 100%; cursor: pointer; }
+.lead-form button:disabled { cursor: wait; opacity: .7; }
+.lead-message { display: flex; min-height: 20px; align-items: center; gap: 7px; margin: 0;
+  color: #18744a; font-size: 13px; line-height: 1.45; }
+.lead-message.is-error { color: #a42828; }
+.lead-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+@media (max-width: 850px) { .contact-heading, .contact-grid { grid-template-columns: 1fr; }
+  .contact-heading { gap: 24px; } .lead-card > p { min-height: 0; } }
+@media (max-width: 520px) { .lead-card { padding: 26px 20px; border-radius: 22px; } }

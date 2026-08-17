@@ -7,6 +7,7 @@ import type { AuthenticatedRequest } from "../auth/auth.types.js";
 import { clearIntegrationStateCookie, INTEGRATION_STATE_COOKIE, readCookie, setIntegrationStateCookie } from "../auth/cookies.js";
 import { validBearerToken } from "../auth/bearer.js";
 import { SessionGuard } from "../auth/session.guard.js";
+import { ActiveOrganizationGuard } from "../auth/active-organization.guard.js";
 import { loadConfig } from "../config.js";
 import { GoogleApiError, GoogleCalendarService } from "./google-calendar.service.js";
 
@@ -17,13 +18,13 @@ export class IntegrationsController {
   constructor(@Inject(GoogleCalendarService) private readonly google: GoogleCalendarService) {}
 
   @Get()
-  @UseGuards(SessionGuard)
+  @UseGuards(SessionGuard, ActiveOrganizationGuard)
   summary(@Req() request: AuthenticatedRequest) {
     return this.google.summary(request.session!.userId);
   }
 
   @Get("google/connect")
-  @UseGuards(SessionGuard)
+  @UseGuards(SessionGuard, ActiveOrganizationGuard)
   async connect(@Req() request: AuthenticatedRequest, @Res() response: Response) {
     const flow = await this.google.begin(request.session!.userId);
     setIntegrationStateCookie(response, flow.state);
@@ -31,7 +32,7 @@ export class IntegrationsController {
   }
 
   @Get("google/callback")
-  @UseGuards(SessionGuard)
+  @UseGuards(SessionGuard, ActiveOrganizationGuard)
   async callback(
     @Query("code") code: string | undefined,
     @Query("state") state: string | undefined,
@@ -54,13 +55,13 @@ export class IntegrationsController {
   }
 
   @Post("google/sync")
-  @UseGuards(SessionGuard)
+  @UseGuards(SessionGuard, ActiveOrganizationGuard)
   sync(@Req() request: AuthenticatedRequest) {
     return this.google.sync(request.session!.userId);
   }
 
   @Post("google/disconnect")
-  @UseGuards(SessionGuard)
+  @UseGuards(SessionGuard, ActiveOrganizationGuard)
   disconnect(@Req() request: AuthenticatedRequest) {
     return this.google.disconnect(request.session!.userId);
   }

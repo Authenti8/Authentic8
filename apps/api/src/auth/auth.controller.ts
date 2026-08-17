@@ -141,6 +141,7 @@ export class AuthController {
 }
 
 function authDestination(config: ReturnType<typeof loadConfig>, path?: string) {
+  if (path?.startsWith("/accept-invite")) return `${config.authOrigin}${path}`;
   if (path?.startsWith("/onboarding")) return `${config.onboardingOrigin}${path}`;
   if (path?.startsWith("/dashboard/subscription")) return `${config.paymentOrigin}${path}`;
   if (path?.startsWith("/dashboard")) return `${config.dashboardOrigin}${path}`;
@@ -153,7 +154,7 @@ function metadata(request: Request) {
 
 export function safeAuthReturnPath(path: string | undefined) {
   if (!path) return undefined;
-  const allowed = ["/dashboard", "/onboarding"];
+  const allowed = ["/dashboard", "/onboarding", "/accept-invite"];
   return allowed.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
     ? path
     : undefined;

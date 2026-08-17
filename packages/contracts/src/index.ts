@@ -1,4 +1,4 @@
-export type UserRole = "OWNER" | "ADMIN" | "RECRUITER" | "VIEWER";
+export type UserRole = "OWNER" | "MANAGER" | "HR";
 
 export type SessionUser = {
   id: string;
@@ -148,6 +148,25 @@ export type AdminOverview = { organizations: AdminOrganization[];
 export type PilotReadiness = {
   ready: boolean; checkedAt: string; checks: Array<{ key: string; passed: boolean }>;
 };
+
+export type CommercialLead = { id: string; leadType: "DEMO_REQUEST" | "WAITLIST";
+  fullName: string; email: string; companyName: string; stage: string;
+  assignedTo: string | null; submissionCount: number; lastSubmittedAt: string;
+  createdAt: string; updatedAt: string; convertedOrganizationId?: string | null;
+  followUpOwner: string | null; followUpDueAt: string | null;
+  followUpReminderAt: string | null; followUpCompletedAt: string | null };
+export type PlatformStaffMember = { userId: string; name: string; email: string;
+  role: "PLATFORM_FOUNDER" | "PLATFORM_SALES"; status: "ACTIVE" | "SUSPENDED" | "REMOVED" };
+export type CommercialOverview = { role: "PLATFORM_FOUNDER" | "PLATFORM_SALES";
+  staff: PlatformStaffMember[]; leads: CommercialLead[];
+  nextCursor: string | null };
+export type CommercialOrganization = { id: string; name: string; domain: string };
+export type OrganizationMember = { userId: string; name: string; email: string;
+  role: UserRole; status: "ACTIVE" | "SUSPENDED" | "REMOVED" };
+export type OrganizationInvitation = { id: string; email: string; role: "MANAGER" | "HR";
+  expiresAt: string; createdAt: string };
+export type OrganizationMembersOverview = { organizationId: string; role: UserRole;
+  members: OrganizationMember[]; invitations: OrganizationInvitation[] };
 
 export type CandidateVerification = {
   valid: true;

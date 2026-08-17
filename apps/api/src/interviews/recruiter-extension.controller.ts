@@ -3,6 +3,7 @@ import { Body, Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Post, Que
 import type { AuthenticatedRequest } from "../auth/auth.types.js";
 import { RateLimiterService } from "../auth/rate-limiter.service.js";
 import { SessionGuard } from "../auth/session.guard.js";
+import { ActiveOrganizationGuard } from "../auth/active-organization.guard.js";
 import { RecruiterExtensionService } from "./recruiter-extension.service.js";
 
 @Controller("recruiter-extension")
@@ -13,7 +14,7 @@ export class RecruiterExtensionController {
   ) {}
 
   @Post("token")
-  @UseGuards(SessionGuard)
+  @UseGuards(SessionGuard, ActiveOrganizationGuard)
   async issue(@Req() request: AuthenticatedRequest, @Body() body: { organizationId?: unknown }) {
     await this.rateLimiter.consume(`recruiter-extension:token:${request.session!.userId}`, 12,
       15 * 60_000);

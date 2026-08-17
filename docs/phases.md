@@ -2984,3 +2984,490 @@ real-time AI assistance tools. The durable asset is the combination of:
 The defensibility is not the dashboard alone. It is the accumulated detection
 research, validation corpus, evidence integrity, operating-system expertise,
 and customer trust required to make a `CONFIRMED` result credible.
+
+---
+
+# Phase 41 — Landing-Page Demo and Waitlist Capture
+
+> Implemented through the public lead API, durable commercial email outbox, and professional
+> landing-page demo and waitlist forms.
+
+## Feature
+
+Add `Book Demo` and `Join Waitlist` actions to the public landing page. Both
+actions open a small accessible form that collects full name, work email, and
+company name before submission.
+
+## Lead-Capture Rules
+
+- Treat demo requests and waitlist entries as separate lead types.
+- Validate and normalize every field on the server.
+- Require a valid email address and reject empty or excessively long values.
+- Rate-limit submissions by IP address and normalized email hash.
+- Deduplicate repeated submissions without losing the latest attribution data.
+- Record source path, referrer, and approved UTM parameters when available.
+- Enqueue confirmation and internal notification email after the lead is saved.
+- Never expose lead records through an anonymous database policy or public API.
+- Apply an explicit retention period to leads that never become customers.
+
+## Submission Algorithm
+
+```text
+ON demo or waitlist submission:
+    Normalize name, email, and company
+    Validate field lengths and consent
+    Consume IP and email rate limits
+    Upsert one lead for the normalized email, company, and lead type
+    Record an immutable submission activity
+    Enqueue confirmation and sales notification
+    Return a generic success response
+```
+
+## Acceptance Criteria
+
+- Both landing-page buttons work on desktop and mobile.
+- Keyboard and screen-reader users can complete either form.
+- Duplicate clicks or retries do not create duplicate active leads.
+- Notification failure does not lose a successfully submitted lead.
+- Public responses do not reveal whether an email already exists.
+
+---
+
+# Phase 42 — Founder and Internal Sales-Team Access
+
+> Implemented with isolated platform staff roles, immediate suspension, and an audited internal
+> founder and sales workspace.
+
+## Feature
+
+Create a platform-level founder dashboard for managing the Authenti8 sales team.
+Platform roles are independent from customer organization roles and never grant
+membership in a customer organization.
+
+## Internal Roles
+
+- `PLATFORM_FOUNDER`: manages sales users and all commercial operations.
+- `PLATFORM_SALES`: works assigned leads, demos, proposals, and follow-ups.
+- `PLATFORM_ADMIN`: retains the audited operational controls from Phase 36.
+
+## Authorization Rules
+
+- Only a platform founder can add, suspend, or remove a sales-team member.
+- Sales users can access only the commercial records allowed by their role.
+- Sales users cannot grant organization credits or activate paid subscriptions.
+- Platform administrators do not automatically receive founder or sales access.
+- Every internal role change records actor, target, previous state, reason, and time.
+- Suspending an internal user revokes their active sessions and future access.
+
+## Acceptance Criteria
+
+- Customer owners cannot reach the founder dashboard.
+- A sales user cannot promote themselves or another sales user.
+- Removing a sales user preserves historical ownership and activity records.
+- All internal access and mutations appear in the immutable audit log.
+
+---
+
+# Phase 43 — Waitlist, Demo, and Company Sales Pipeline
+
+> Implemented with deduplicated leads, assignment, controlled stage changes, internal notes, and
+> reproducible append-only activity history.
+
+## Feature
+
+Allow the founder and sales team to monitor waitlist entries, demo requests,
+companies, assignments, notes, and follow-up work from one dashboard.
+
+## Pipeline States
+
+```text
+NEW
+CONTACTED
+QUALIFIED
+DEMO_SCHEDULED
+PROPOSAL_SENT
+WON
+LOST
+```
+
+## Pipeline Rules
+
+- A lead may be assigned to one active sales owner at a time.
+- Keep stage changes as append-only activities rather than overwriting history.
+- Notes are internal, access-controlled, and excluded from customer-facing APIs.
+- Follow-up dates support an owner, due time, completion state, and reminder.
+- Link a won lead to exactly one customer organization.
+- Merging duplicate companies must preserve every lead, note, and activity.
+- Do not copy candidate telemetry, reports, or detection evidence into sales records.
+
+## Acceptance Criteria
+
+- Founder can filter by lead type, stage, owner, company, and follow-up status.
+- Sales users can update assigned leads without gaining platform-admin privileges.
+- Conversion creates or links an organization without duplicating it.
+- Pipeline metrics are derived from immutable activities and can be reproduced.
+
+---
+
+# Phase 44 — Owner, Manager, and HR Organization Roles
+
+> Implemented as canonical business roles mapped safely over the existing runtime authorization
+> roles so deployed billing and interview functions remain compatible during migration.
+
+## Feature
+
+Standardize customer organization access around three business roles:
+
+- `OWNER`: owns the organization and controls billing and managers.
+- `MANAGER`: manages hiring operations and may conduct interviews.
+- `HR`: conducts assigned interviews under the organization.
+
+The user who creates an organization becomes its initial owner.
+
+## Role Migration
+
+- Migrate the existing `ADMIN` role to `MANAGER`.
+- Migrate the existing `RECRUITER` role to `HR`.
+- Deprecate `VIEWER` unless a future read-only auditor role is explicitly designed.
+- Preserve membership history and actor identity during migration.
+- Keep authorization fail-closed while old and new application versions overlap.
+
+## Permission Matrix
+
+| Capability | Owner | Manager | HR |
+| --- | --- | --- | --- |
+| Manage organization settings | Yes | Yes | No |
+| Add or remove managers | Yes | No | No |
+| Add or remove HR members | Yes | Yes | No |
+| Conduct interviews | Yes | Yes | Yes |
+| View all organization interviews | Yes | Yes | No |
+| View assigned interviews | Yes | Yes | Yes |
+| Allocate HR interview credits | Yes | Yes | No |
+| Purchase credits by default | Yes | No | No |
+| Purchase with owner delegation | Yes | Yes | No |
+| Grant billing delegation | Yes | No | No |
+
+## Invariants
+
+- Every organization always has at least one active owner.
+- A manager cannot create, promote, suspend, or remove an owner or manager.
+- An HR member cannot invite or modify another member.
+- Role checks occur in database and API authorization, not only in the interface.
+- Changing a role revokes permissions that are no longer valid immediately.
+
+---
+
+# Phase 45 — Organization Invitations and Member Lifecycle
+
+> Implemented with email-bound, expiring, single-use invitations, role-limited membership
+> management, session revocation, and owner-preservation controls.
+
+## Feature
+
+Allow owners to invite managers and HR members, and allow managers to invite HR
+members. Invitations use expiring, single-use tokens and do not grant access
+until accepted by the intended account.
+
+## Invitation States
+
+```text
+PENDING
+ACCEPTED
+EXPIRED
+REVOKED
+```
+
+## Member States
+
+```text
+ACTIVE
+SUSPENDED
+REMOVED
+```
+
+## Membership Algorithm
+
+```text
+ON invitation request:
+    Authenticate actor and organization
+    Verify actor may grant the requested role
+    Normalize invited email
+    Reject conflicting active membership
+    Store only a hash of the invitation token
+    Enqueue invitation email
+
+ON invitation acceptance:
+    Lock invitation
+    Verify token, email binding, expiry, and unused state
+    Create or activate membership
+    Mark invitation accepted atomically
+    Record membership audit event
+```
+
+## Acceptance Criteria
+
+- Owner can invite managers and HR members.
+- Manager can invite HR members only.
+- HR cannot create or resend invitations.
+- Revoked, expired, or replayed invitations never create membership.
+- Suspending or removing a member invalidates organization access and sessions.
+- Ownership transfer requires reauthentication and explicit acceptance by the new owner.
+
+---
+
+# Phase 46 — Owner-Controlled Billing Delegation
+
+## Feature
+
+Keep billing owner-only by default while allowing an owner to approve a specific
+manager to purchase subscriptions or interview credits for the organization.
+HR members can never receive a billing-purchase permission.
+
+## Delegation Model
+
+A billing grant records:
+
+- Organization and manager membership.
+- Permission type such as `BILLING_PURCHASE`.
+- Granting owner.
+- Grant and optional expiry time.
+- Optional per-purchase and monthly amount limits.
+- Revocation time and reason.
+
+## Checkout Authorization
+
+```text
+ON checkout creation:
+    Authenticate actor
+    Lock current organization membership
+    IF actor is OWNER:
+        Continue
+    ELSE IF actor is MANAGER:
+        Require active owner-issued BILLING_PURCHASE grant
+        Enforce expiry and monetary limits
+    ELSE:
+        Deny
+    Create provider checkout intent bound to actor and organization
+
+ON payment webhook:
+    Verify provider signature and event freshness
+    Resolve the original authorized checkout intent
+    Apply subscription or credits idempotently
+```
+
+## Acceptance Criteria
+
+- A manager without an active grant cannot open or complete checkout.
+- Revoking a grant blocks new checkout immediately.
+- An HR member cannot pay even if a request body claims another role.
+- Payment methods, invoices, and checkout sessions remain organization-scoped.
+- Every delegated purchase identifies both the paying manager and approving owner.
+
+---
+
+# Phase 47 — HR Interview-Credit Wallets
+
+## Feature
+
+Give every active HR member a wallet showing how many organization-funded
+interview links they may use. A wallet is an allocation of organization credits,
+not money and not a second source of purchased credits.
+
+## Wallet Ledger
+
+Use immutable allocation transactions such as:
+
+```text
+ALLOCATION_GRANTED
+ALLOCATION_REDUCED
+INTERVIEW_RESERVED
+INTERVIEW_CONSUMED
+INTERVIEW_RELEASED
+MEMBER_SUSPENDED
+ADMIN_CORRECTION
+```
+
+Each transaction records organization, member, interview when applicable,
+amount, actor, reason, idempotency key, and time.
+
+## Wallet Invariants
+
+- Allocation never creates organization credits.
+- Available HR balance equals grants minus reductions, reservations, and consumption.
+- Total hard allocations and active reservations cannot exceed organization availability.
+- Only an owner or manager can grant or reduce an HR allocation.
+- An HR member cannot transfer or modify their own allocation.
+- Suspending or removing an HR member returns unused allocation to the organization pool.
+- Repeated requests cannot reserve or consume the same interview twice.
+
+## Acceptance Criteria
+
+- Owner and manager can see every HR wallet in their organization.
+- HR sees only their own available, reserved, and consumed totals.
+- Allocation changes are atomic and auditable under concurrent requests.
+- Wallet history never changes when a display balance is recalculated.
+
+---
+
+# Phase 48 — Role-Aware Interview Ownership and Credit Use
+
+## Feature
+
+Bind each protected interview and credit reservation to the organization member
+responsible for it. Owners and managers may conduct interviews directly; HR may
+conduct only interviews assigned to them or created through their authorized
+calendar workflow.
+
+## Reservation Algorithm
+
+```text
+WHEN an interview becomes eligible for protection:
+    Resolve initiating or assigned organization member
+    Verify active membership and interview permission
+    Verify active organization subscription
+    Lock organization credit balance
+
+    IF member role is HR:
+        Lock and verify HR wallet balance
+
+    Reserve one organization credit
+    Reserve one HR allocation when applicable
+    Bind both reservations to the interview and member
+
+WHEN monitoring starts successfully:
+    Consume organization reservation
+    Consume HR reservation when applicable
+
+WHEN the interview is cancelled, declined, excluded, or fails before consumption:
+    Release both reservations to their original sources
+```
+
+## Dashboard Access
+
+- Owner sees billing, members, all wallets, all interviews, and organization settings.
+- Manager sees HR management, wallets, and organization interviews, but billing only
+  when separately delegated.
+- HR sees their wallet and assigned or self-owned interviews only.
+- Reports and live logs follow the same interview scope as the meeting list.
+
+## Acceptance Criteria
+
+- Organization credit and HR wallet state can never disagree for one interview.
+- Reassignment moves an unconsumed wallet reservation atomically.
+- Cancellation and pre-monitoring failure restore the original HR allocation.
+- Removing an HR member prevents new interviews without corrupting historical reports.
+- Cross-organization or cross-HR interview access is denied at the data boundary.
+
+---
+
+# Phase 49 — Enterprise Sales, Contracts, and Paid Credits
+
+## Feature
+
+Keep Enterprise as `Contact Sales` while replacing manual balance editing with
+an auditable proposal, contract, invoice, payment, and credit-posting workflow.
+
+## Enterprise Lifecycle
+
+```text
+LEAD
+PROPOSAL
+CONTRACT_PENDING
+PAYMENT_PENDING
+ACTIVE
+PAST_DUE
+SUSPENDED
+TERMINATED
+```
+
+## Commercial Records
+
+An enterprise agreement records organization, contract value, currency, billing
+interval, purchased interview credits, effective dates, payment terms, sales
+owner, signed-document reference, and current state.
+
+## Payment and Credit Rules
+
+- Sales may draft proposals but cannot directly edit credit balances.
+- Activate entitlements only from a verified payment webhook, reconciled invoice,
+  or two-person approved administrative grant.
+- Bind every credit transaction to contract, invoice, payment, organization, and
+  provider event identifiers.
+- Use a stable idempotency key so webhook retries cannot add credits twice.
+- Record amount and currency separately from the number of interview credits.
+- Credits belong to the organization and may then be allocated to HR wallets.
+- Refunds and contract reductions use compensating ledger entries, never deletion.
+- Past-due or suspended state blocks new reservations according to contract policy
+  without rewriting completed interview history.
+
+## Acceptance Criteria
+
+- `Contact Sales` creates a traceable commercial lead.
+- A won lead links to exactly one organization and enterprise agreement.
+- A confirmed payment adds exactly the contracted credits once.
+- Sales users cannot activate a subscription or manufacture credits alone.
+- Founder and administrators can reconcile contract, invoice, payment, and ledger totals.
+
+---
+
+# Phase 50 — Commercial Organization End-to-End Release
+
+## Feature
+
+Validate the complete sellable workflow from public lead capture through company
+conversion, organization staffing, delegated payment, HR allocation, interview
+consumption, reporting, renewal, and support.
+
+## End-to-End Algorithm
+
+```text
+1. Company submits Book Demo or Join Waitlist form.
+2. Founder assigns the lead to a sales-team member.
+3. Sales qualifies the company and records a proposal.
+4. Company founder creates an Authenti8 account and organization as OWNER.
+5. Owner purchases a plan or completes an enterprise agreement.
+6. Verified payment adds organization interview credits.
+7. Owner invites MANAGER and HR members.
+8. Manager accepts the invitation and invites additional HR members.
+9. Owner optionally grants billing permission to a manager.
+10. Owner or manager allocates interview credits to HR wallets.
+11. HR schedules or receives an assigned interview.
+12. Organization and wallet credits reserve atomically.
+13. Candidate completes the existing consent and verification workflow.
+14. Successful monitoring consumes the reservation.
+15. Cancellation or eligible failure releases the reservation.
+16. Authorized hiring-team members review live status and final report.
+17. Founder and sales monitor account conversion and renewal without candidate evidence access.
+```
+
+## Commercial Release Gate
+
+Do not enable general paid organization onboarding until:
+
+- Public lead forms are rate-limited, private, accessible, and observable.
+- Platform founder, sales, admin, owner, manager, and HR boundaries are tested.
+- Every organization retains an owner under concurrent membership changes.
+- Owners alone can grant manager billing permission.
+- HR can never purchase or administer memberships.
+- Payment events and enterprise invoices add credits exactly once.
+- HR allocation cannot create or overspend organization credits.
+- Interview reservation, consumption, reassignment, and release remain atomic.
+- Suspended members immediately lose access without deleting audit history.
+- Tenant isolation covers members, wallets, invoices, interviews, live logs, and reports.
+- Retention and deletion include unconverted leads and commercial contact data.
+- All sensitive role, billing, allocation, and enterprise mutations are auditable.
+- Guardian, migration tests, production build, and commercial end-to-end tests pass.
+
+## Final Business Invariant
+
+```text
+Verified payment or approved entitlement
+    -> organization credit ledger
+    -> owner/manager allocation
+    -> HR wallet
+    -> interview reservation
+    -> consumption or release
+```
+
+No role, dashboard, webhook, sales action, or administrative shortcut may create
+spendable interview credits outside this chain.

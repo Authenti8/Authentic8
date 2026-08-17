@@ -23,7 +23,7 @@ export default async function SubscriptionPage() {
     getServerApi<BillingSummary>("/billing"), getServerApi<BillingHistory>("/billing/history"),
     requireSession(),
   ]);
-  const canManage = ["OWNER", "ADMIN"].includes(session.organization?.role ?? "");
+  const canManage = session.organization?.role === "OWNER";
   const billingActive = ["ACTIVE", "TRIALING"].includes(billing.status);
   const supportsExtraCredits = ["STARTER", "PROFESSIONAL"].includes(billing.plan);
   const professionalRecovery = billing.plan === "PROFESSIONAL"

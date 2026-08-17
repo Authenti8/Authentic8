@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, CalendarDays, CreditCard, LayoutDashboard, PlugZap } from "lucide-react";
+import { Bell, CalendarDays, CreditCard, LayoutDashboard, PlugZap, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,6 +8,7 @@ const nav = [
   [LayoutDashboard, "Overview", "/dashboard"],
   [CalendarDays, "Meetings", "/dashboard/meetings"],
   [Bell, "Notifications", "/dashboard/notifications"],
+  [UsersRound, "Hiring team", "/dashboard/team"],
   [CreditCard, "Plans & billing", "/dashboard/subscription"],
   [PlugZap, "Integrations", "/dashboard/integrations"],
 ] as const;

@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 function safeProtectedPath(value: string | string[] | undefined) {
   const path = Array.isArray(value) ? value[0] : value;
   if (!path) return undefined;
-  const allowed = ["/dashboard", "/onboarding"];
+  const allowed = ["/dashboard", "/onboarding", "/accept-invite"];
   return allowed.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
     ? path
     : undefined;
