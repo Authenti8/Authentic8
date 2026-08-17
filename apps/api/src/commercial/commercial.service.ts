@@ -1,8 +1,9 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable } from "@nestjs/common";
-import type { CommercialOverview } from "@authenti8/contracts";
+import type { CommercialOverview, EnterpriseAgreement } from "@authenti8/contracts";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import { loadConfig } from "../config.js";
-import type { ConvertLeadDto, ManageStaffDto, SubmitLeadDto, UpdateLeadDto } from "./commercial.dto.js";
+import type { ConvertLeadDto, EnterpriseInvoiceDto, EnterpriseProposalDto, ManageStaffDto,
+  SubmitLeadDto, UpdateLeadDto } from "./commercial.dto.js";
 
 @Injectable()
 export class CommercialService {
@@ -14,9 +15,7 @@ export class CommercialService {
       "authenti8_submit_commercial_lead", { ...input,
         salesNotificationEmail: this.config.salesNotificationEmail || undefined });
     if (!result.accepted) throw new BadRequestException("Enter valid contact information.");
-    return { accepted: true, message: input.leadType === "DEMO_REQUEST"
-      ? "Thank you. Our team will contact you to arrange a conversation."
-      : "Thank you. You have been added to the Authenti8 waitlist." };
+    return { accepted: true, message: "Thank you. You have been added to the Authenti8 waitlist." };
   }
 
   async overview(userId: string, input: Record<string, unknown> = {}) {
@@ -61,6 +60,34 @@ export class CommercialService {
     const result = await this.supabase.rpc<{ converted: boolean; reason?: string }>(
       "authenti8_convert_commercial_lead", { ...input, userId });
     if (!result.converted) throw new BadRequestException(result.reason ?? "Lead conversion failed.");
+    return result;
+  }
+
+  async enterprise(userId: string) {
+    const result = await this.supabase.rpc<EnterpriseAgreement[] | null>(
+      "authenti8_enterprise_overview", { userId });
+    if (!result) throw new ForbiddenException("Commercial agreement access is required.");
+    return result;
+  }
+
+  async proposal(userId: string, input: EnterpriseProposalDto) {
+    const result = await this.supabase.rpc<{ updated: boolean; reason?: string }>(
+      "authenti8_upsert_enterprise_proposal", { ...input, userId });
+    if (!result.updated) throw new BadRequestException(result.reason ?? "Proposal update failed.");
+    return result;
+  }
+
+  async invoice(userId: string, input: EnterpriseInvoiceDto) {
+    const result = await this.supabase.rpc<{ created: boolean; reason?: string }>(
+      "authenti8_issue_enterprise_invoice", { ...input, userId });
+    if (!result.created) throw new BadRequestException(result.reason ?? "Invoice creation failed.");
+    return result;
+  }
+
+  async releaseReadiness(userId: string) {
+    const result = await this.supabase.rpc<Record<string, unknown> | null>(
+      "authenti8_commercial_release_readiness", { userId });
+    if (!result) throw new ForbiddenException("Commercial release access is required.");
     return result;
   }
 }

@@ -5,10 +5,11 @@ import { DashboardNav } from "./dashboard-nav";
 import { LogoutButton } from "./logout-button";
 import { WorkspaceWarning } from "./workspace-warning";
 
-export function DashboardShell({ session, health, integration, children }: {
+export function DashboardShell({ session, health, integration, canViewBilling, children }: {
   session: SessionResponse;
   health: DashboardOverview;
   integration: IntegrationSummary;
+  canViewBilling: boolean;
   children: ReactNode;
 }) {
   const warning = workspaceWarning(health, integration);
@@ -17,7 +18,8 @@ export function DashboardShell({ session, health, integration, children }: {
       <aside className="dashboard-sidebar">
         <div className="sidebar-brand"><Brand /><span>Private beta</span></div>
         <div className="workspace-status"><i /><span><small>{health.balance} credits available</small><strong>{session.organization?.name ?? "Workspace"}</strong></span></div>
-        <nav aria-label="Workspace navigation"><small>Workspace</small><DashboardNav /></nav>
+        <nav aria-label="Workspace navigation"><small>Workspace</small>
+          <DashboardNav canViewBilling={canViewBilling} /></nav>
         <div className="sidebar-bottom">
           <div className="workspace-chip"><span>{initials(session.organization?.name ?? session.user.fullName)}</span><div><strong>{session.organization?.name ?? "Workspace"}</strong><small>{session.user.email}</small></div></div>
           <LogoutButton />

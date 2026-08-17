@@ -1,4 +1,5 @@
-import type { BillingHistory, BillingSummary, PlanKey } from "@authenti8/contracts";
+import type { BillingCapabilities, BillingCatalog, BillingHistory, BillingSummary,
+  PlanKey } from "@authenti8/contracts";
 import { Check, Mail } from "lucide-react";
 import { BillingPortalButton } from "@/components/dashboard/billing-portal-button";
 import { CheckoutButton } from "@/components/dashboard/checkout-button";
@@ -6,24 +7,26 @@ import { ExtraCreditPurchase } from "@/components/dashboard/extra-credit-purchas
 import { InvoiceButton } from "@/components/dashboard/invoice-button";
 import { getServerApi, requireSession } from "@/lib/server-api";
 
-const plans = [
-  { key: "STARTER", name: "Starter", price: "$0", cadence: "forever",
+const planDetails = [
+  { key: "STARTER", name: "Starter", cadence: "forever",
     description: "For a focused first hiring workflow.", allowance: "10 interviews / month",
-    overage: "$5 per extra interview" },
-  { key: "PROFESSIONAL", name: "Professional", price: "$1,000", cadence: "per month",
+    hasOverage: true },
+  { key: "PROFESSIONAL", name: "Professional", cadence: "per month",
     description: "For hiring teams running interviews every day.", allowance: "300 interviews / month",
-    overage: "$5 per extra interview" },
-  { key: "ENTERPRISE", name: "Enterprise", price: "Custom", cadence: "annual agreement",
+    hasOverage: true },
+  { key: "ENTERPRISE", name: "Enterprise", cadence: "annual agreement",
     description: "Custom capacity, invoicing, and rollout support.", allowance: "Team-defined limits",
-    overage: null },
+    hasOverage: false },
 ] as const;
 
 export default async function SubscriptionPage() {
-  const [billing, history, session] = await Promise.all([
+  const [billing, history, capabilities, catalog] = await Promise.all([
     getServerApi<BillingSummary>("/billing"), getServerApi<BillingHistory>("/billing/history"),
-    requireSession(),
+    requireSession().then(() => getServerApi<BillingCapabilities>("/billing/capabilities")),
+    getServerApi<BillingCatalog>("/billing/catalog"),
   ]);
-  const canManage = session.organization?.role === "OWNER";
+  const plans = pricedPlans(catalog);
+  const canManage = capabilities.canPurchase;
   const billingActive = ["ACTIVE", "TRIALING"].includes(billing.status);
   const supportsExtraCredits = ["STARTER", "PROFESSIONAL"].includes(billing.plan);
   const professionalRecovery = billing.plan === "PROFESSIONAL"
@@ -34,15 +37,15 @@ export default async function SubscriptionPage() {
       <section aria-label="Subscription plans" className="pricing-grid">
         {plans.map((plan) => <PlanCard billing={billing} canManage={canManage} key={plan.key} plan={plan} />)}
       </section>
-      {canManage && billingActive && supportsExtraCredits ? <ExtraCreditPurchase /> : null}
+      {canManage && billingActive && supportsExtraCredits ? <ExtraCreditPurchase
+        amountMinor={catalog.extraInterviewAmountMinor} currency={catalog.currency} /> : null}
       {canManage && professionalRecovery ? <BillingRecovery /> : null}
-      {!canManage ? <BillingReadOnly /> : null}
       <section className="billing-capacity"><span>Current billing period</span>
         <strong>{billing.includedUsed} of {billing.allowance} included interviews used</strong>
         <small>Renews {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(billing.periodEnd))}</small>
       </section>
-      <BillingActivity canDownloadInvoices={canManage}
-        canOpenPortal={canManage && billing.plan === "PROFESSIONAL"} history={history} />
+      <BillingActivity canDownloadInvoices={capabilities.canManagePortal}
+        canOpenPortal={capabilities.canManagePortal && billing.plan === "PROFESSIONAL"} history={history} />
     </div>
   );
 }
@@ -71,7 +74,7 @@ function BillingActivity({ history, canOpenPortal, canDownloadInvoices }: {
 }
 
 function PlanCard({ plan, billing, canManage }: {
-  plan: typeof plans[number];
+  plan: ReturnType<typeof pricedPlans>[number];
   billing: BillingSummary;
   canManage: boolean;
 }) {
@@ -90,6 +93,16 @@ function PlanCard({ plan, billing, canManage }: {
   );
 }
 
+function pricedPlans(catalog: BillingCatalog) {
+  const format = (amount: number) => new Intl.NumberFormat("en", { style: "currency",
+    currency: catalog.currency, maximumFractionDigits: 2 }).format(amount / 100);
+  return planDetails.map((plan) => ({ ...plan,
+    price: plan.key === "STARTER" ? format(0) : plan.key === "PROFESSIONAL"
+      ? format(catalog.professionalAmountMinor) : "Custom",
+    overage: plan.hasOverage ? `${format(catalog.extraInterviewAmountMinor)} per extra interview`
+      : null }));
+}
+
 function PlanAction({ current, manageable, plan, canManage }: {
   current: boolean;
   manageable: boolean;
@@ -98,16 +111,12 @@ function PlanAction({ current, manageable, plan, canManage }: {
 }) {
   if (!canManage) return current
     ? <button className="button-secondary" disabled>Active plan</button>
-    : <span className="plan-note">Only workspace owners and admins can change billing.</span>;
+    : <span className="plan-note">An owner must approve manager purchasing access.</span>;
   if (manageable) return <BillingPortalButton label={current ? "Manage billing" : "Restore billing"} />;
   if (current) return <button className="button-secondary" disabled>Active plan</button>;
   if (plan === "PROFESSIONAL") return <CheckoutButton label="Choose Professional" purpose="PROFESSIONAL" />;
   if (plan === "ENTERPRISE") return <a className="button-secondary" href="mailto:sales@authenti8.com?subject=Authenti8 Enterprise"><Mail size={15} /> Contact sales</a>;
   return <span className="plan-note">Starter is enabled automatically for new workspaces.</span>;
-}
-
-function BillingReadOnly() {
-  return <section className="extra-credit-card"><div><span>Billing access</span><h2>Workspace billing is read-only</h2><p>Ask a workspace owner or admin to purchase additional interview capacity.</p></div></section>;
 }
 
 function BillingRecovery() {

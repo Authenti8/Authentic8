@@ -109,8 +109,17 @@ function dodoConfig(nodeEnv: string) {
     webhookKey,
     professionalProductId: process.env.DODO_PROFESSIONAL_PRODUCT_ID?.trim() ?? "",
     extraInterviewProductId: process.env.DODO_EXTRA_INTERVIEW_PRODUCT_ID?.trim() ?? "",
+    professionalAmountMinor: positiveInteger("DODO_PROFESSIONAL_AMOUNT_MINOR", 100_000),
+    extraInterviewAmountMinor: positiveInteger("DODO_EXTRA_INTERVIEW_AMOUNT_MINOR", 500),
     baseUrl: mode === "live_mode" ? "https://live.dodopayments.com" : "https://test.dodopayments.com",
   };
+}
+
+function positiveInteger(name: string, fallback: number) {
+  const raw = process.env[name]?.trim();
+  const value = raw ? Number(raw) : fallback;
+  if (!Number.isSafeInteger(value) || value < 1) throw new Error(`${name} must be a positive integer`);
+  return value;
 }
 
 function supabaseBrowserKey(requiredForGoogle: boolean) {

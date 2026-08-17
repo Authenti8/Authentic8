@@ -5,7 +5,8 @@ import { RateLimiterService } from "../auth/rate-limiter.service.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { CommercialService } from "./commercial.service.js";
 import { CommercialOrganizationQueryDto, CommercialOverviewQueryDto, ConvertLeadDto,
-  ManageStaffDto, SubmitLeadDto, UpdateLeadDto } from "./commercial.dto.js";
+  EnterpriseInvoiceDto, EnterpriseProposalDto, ManageStaffDto, SubmitLeadDto,
+  UpdateLeadDto } from "./commercial.dto.js";
 
 @Controller("commercial")
 export class CommercialController {
@@ -49,6 +50,30 @@ export class CommercialController {
   @UseGuards(SessionGuard)
   convert(@Body() body: ConvertLeadDto, @Req() request: AuthenticatedRequest) {
     return this.commercial.convertLead(request.session!.userId, body);
+  }
+
+  @Get("enterprise")
+  @UseGuards(SessionGuard)
+  enterprise(@Req() request: AuthenticatedRequest) {
+    return this.commercial.enterprise(request.session!.userId);
+  }
+
+  @Post("enterprise/proposal")
+  @UseGuards(SessionGuard)
+  proposal(@Body() body: EnterpriseProposalDto, @Req() request: AuthenticatedRequest) {
+    return this.commercial.proposal(request.session!.userId, body);
+  }
+
+  @Post("enterprise/invoice")
+  @UseGuards(SessionGuard)
+  invoice(@Body() body: EnterpriseInvoiceDto, @Req() request: AuthenticatedRequest) {
+    return this.commercial.invoice(request.session!.userId, body);
+  }
+
+  @Get("release-readiness")
+  @UseGuards(SessionGuard)
+  releaseReadiness(@Req() request: AuthenticatedRequest) {
+    return this.commercial.releaseReadiness(request.session!.userId);
   }
 }
 

@@ -2987,20 +2987,19 @@ and customer trust required to make a `CONFIRMED` result credible.
 
 ---
 
-# Phase 41 — Landing-Page Demo and Waitlist Capture
+# Phase 41 — Landing-Page Waitlist Capture
 
 > Implemented through the public lead API, durable commercial email outbox, and professional
-> landing-page demo and waitlist forms.
+> landing-page waitlist form.
 
 ## Feature
 
-Add `Book Demo` and `Join Waitlist` actions to the public landing page. Both
-actions open a small accessible form that collects full name, work email, and
-company name before submission.
+Add one `Join Waitlist` action to the public landing page. It opens a small
+accessible form that collects full name, work email, and company name before submission.
 
 ## Lead-Capture Rules
 
-- Treat demo requests and waitlist entries as separate lead types.
+- Accept new public submissions only as waitlist entries; retain historical lead types internally.
 - Validate and normalize every field on the server.
 - Require a valid email address and reject empty or excessively long values.
 - Rate-limit submissions by IP address and normalized email hash.
@@ -3013,7 +3012,7 @@ company name before submission.
 ## Submission Algorithm
 
 ```text
-ON demo or waitlist submission:
+ON waitlist submission:
     Normalize name, email, and company
     Validate field lengths and consent
     Consume IP and email rate limits
@@ -3025,8 +3024,8 @@ ON demo or waitlist submission:
 
 ## Acceptance Criteria
 
-- Both landing-page buttons work on desktop and mobile.
-- Keyboard and screen-reader users can complete either form.
+- The landing-page waitlist action works on desktop and mobile.
+- Keyboard and screen-reader users can complete the form.
 - Duplicate clicks or retries do not create duplicate active leads.
 - Notification failure does not lose a successfully submitted lead.
 - Public responses do not reveal whether an email already exists.
@@ -3421,7 +3420,7 @@ consumption, reporting, renewal, and support.
 ## End-to-End Algorithm
 
 ```text
-1. Company submits Book Demo or Join Waitlist form.
+1. Company submits the Join Waitlist form.
 2. Founder assigns the lead to a sales-team member.
 3. Sales qualifies the company and records a proposal.
 4. Company founder creates an Authenti8 account and organization as OWNER.

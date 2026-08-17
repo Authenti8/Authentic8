@@ -81,6 +81,7 @@ export type InterviewSummary = {
   candidateName?: string | null;
   candidateEmail: string;
   interviewerEmail?: string;
+  responsibleMemberUserId?: string | null;
   scheduledStart: string;
   scheduledEnd: string;
   status: string;
@@ -167,6 +168,20 @@ export type OrganizationInvitation = { id: string; email: string; role: "MANAGER
   expiresAt: string; createdAt: string };
 export type OrganizationMembersOverview = { organizationId: string; role: UserRole;
   members: OrganizationMember[]; invitations: OrganizationInvitation[] };
+export type BillingGrant = { id: string; managerUserId: string; managerName: string;
+  managerEmail: string; expiresAt: string | null; perPurchaseLimitMinor: number | null;
+  monthlyLimitMinor: number | null; revokedAt: string | null };
+export type BillingCapabilities = { role: UserRole; canPurchase: boolean;
+  canManagePortal: boolean };
+export type BillingCatalog = { currency: string; professionalAmountMinor: number;
+  extraInterviewAmountMinor: number };
+export type HrWallet = { memberUserId: string; name: string; email: string;
+  available: number; reserved: number; consumed: number };
+export type WalletsOverview = { role: UserRole; wallets: HrWallet[] };
+export type EnterpriseAgreement = { id: string; leadId: string; organizationId: string;
+  organizationName: string; state: string; contractValueMinor: number; currency: string;
+  billingInterval: string; purchasedCredits: number; signedDocumentReference: string | null;
+  invoiceTotalMinor: number; paymentTotalMinor: number };
 
 export type CandidateVerification = {
   valid: true;

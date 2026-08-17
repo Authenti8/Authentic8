@@ -135,6 +135,9 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
   private async deliverNotification(message: NotificationOutboxRow) {
     const stopLeaseRenewal = this.startNotificationLeaseRenewal(message);
     try {
+      const eligible = await this.supabase.rpc<boolean>(
+        "authenti8_validate_notification_email", claimInput(message));
+      if (!eligible) return;
       await this.sendNotification(message);
       await this.supabase.rpc("authenti8_complete_notification_email", claimInput(message));
     } catch (error) {

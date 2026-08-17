@@ -1,5 +1,5 @@
 import {
-  BadRequestException, Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Post, Query, Req,
+  BadRequestException, Body, Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Post, Query, Req,
   UnauthorizedException, UseGuards,
 } from "@nestjs/common";
 import type { DashboardOverview, MeetingDetail, MeetingsPage,
@@ -10,6 +10,7 @@ import { SessionGuard } from "../auth/session.guard.js";
 import { ActiveOrganizationGuard } from "../auth/active-organization.guard.js";
 import { loadConfig } from "../config.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
+import { ReassignInterviewDto } from "./workspace.dto.js";
 
 @Controller()
 @UseGuards(SessionGuard, ActiveOrganizationGuard)
@@ -41,6 +42,16 @@ export class WorkspaceController {
       userId: request.session!.userId, interviewId,
     });
     if (!result) throw new BadRequestException("Meeting is unavailable.");
+    return result;
+  }
+
+  @Post("meetings/:id/assign")
+  async assignMeeting(@Req() request: AuthenticatedRequest,
+    @Param("id", ParseUUIDPipe) interviewId: string, @Body() body: ReassignInterviewDto) {
+    const result = await this.supabase.rpc<{ updated: boolean; reason?: string }>(
+      "authenti8_reassign_interview", { userId: request.session!.userId,
+        interviewId, memberUserId: body.memberUserId });
+    if (!result.updated) throw new BadRequestException(result.reason ?? "Assignment failed.");
     return result;
   }
 

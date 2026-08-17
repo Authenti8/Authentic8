@@ -1,7 +1,7 @@
 import { Transform } from "class-transformer";
 import { Type } from "class-transformer";
 import { IsBoolean, IsEmail, IsIn, IsInt, IsISO8601, IsObject, IsOptional, IsString,
-  IsUUID, Length, Max, MaxLength, Min } from "class-validator";
+  IsUUID, Length, Matches, Max, MaxLength, Min } from "class-validator";
 
 const trim = ({ value }: { value: unknown }) => typeof value === "string" ? value.trim() : value;
 const optionalTrim = ({ value }: { value: unknown }) => {
@@ -9,8 +9,8 @@ const optionalTrim = ({ value }: { value: unknown }) => {
 };
 
 export class SubmitLeadDto {
-  @IsIn(["DEMO_REQUEST", "WAITLIST"])
-  leadType!: "DEMO_REQUEST" | "WAITLIST";
+  @IsIn(["WAITLIST"])
+  leadType!: "WAITLIST";
 
   @Transform(trim)
   @IsString()
@@ -70,4 +70,36 @@ export class CommercialOverviewQueryDto {
 
 export class CommercialOrganizationQueryDto {
   @Transform(trim) @IsString() @Length(2, 160) query!: string;
+}
+
+export class EnterpriseProposalDto {
+  @IsUUID() leadId!: string;
+  @IsUUID() organizationId!: string;
+  @Type(() => Number) @IsInt() @Min(1) contractValueMinor!: number;
+  @Transform(trim) @IsString() @Matches(/^[A-Z]{3}$/) currency!: string;
+  @IsIn(["MONTHLY", "ANNUAL", "ONE_TIME"]) billingInterval!: string;
+  @Type(() => Number) @IsInt() @Min(1) @Max(1000000) purchasedCredits!: number;
+  @IsISO8601() effectiveAt!: string;
+  @IsOptional() @IsISO8601() expiresAt?: string;
+  @Type(() => Number) @IsInt() @Min(0) @Max(365) paymentTermsDays!: number;
+  @IsOptional() @Transform(optionalTrim) @IsString() @MaxLength(500)
+  signedDocumentReference?: string;
+}
+
+export class EnterpriseInvoiceDto {
+  @IsUUID() agreementId!: string;
+  @Transform(trim) @IsString() @Length(2, 30) provider!: string;
+  @Transform(trim) @IsString() @Length(2, 200) providerInvoiceId!: string;
+  @IsISO8601() dueAt!: string;
+  @Transform(trim) @IsString() @Length(5, 500) signedDocumentReference!: string;
+}
+
+export class EnterprisePaymentDto {
+  @Transform(trim) @IsString() @Length(2, 30) provider!: string;
+  @Transform(trim) @IsString() @Length(2, 200) providerInvoiceId!: string;
+  @Transform(trim) @IsString() @Length(2, 200) providerPaymentId!: string;
+  @Transform(trim) @IsString() @Length(2, 200) providerEventId!: string;
+  @Type(() => Number) @IsInt() @Min(1) amountMinor!: number;
+  @Transform(trim) @Matches(/^[A-Z]{3}$/) currency!: string;
+  @Type(() => Number) @IsInt() @Min(1) @Max(1000000) credits!: number;
 }

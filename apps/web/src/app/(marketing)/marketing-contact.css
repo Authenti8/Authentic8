@@ -6,6 +6,7 @@
   font-size: 13px; font-weight: 700; }
 .contact-promises svg { color: var(--blue); }
 .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 58px; }
+.contact-grid.waitlist-only { grid-template-columns: minmax(0, 680px); justify-content: center; }
 .lead-card { scroll-margin-top: 24px; border: 1px solid #c9ddf7; border-radius: 28px; padding: 38px;
   background: white; box-shadow: 0 22px 60px rgba(27, 73, 132, 0.09); }
 .waitlist-card { background: linear-gradient(145deg, #fff, #eef6ff); }

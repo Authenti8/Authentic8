@@ -1,5 +1,5 @@
 import { BadGatewayException, BadRequestException, Inject, Injectable, Logger } from "@nestjs/common";
-import type { BillingHistory, BillingSummary } from "@authenti8/contracts";
+import type { BillingCapabilities, BillingHistory, BillingSummary } from "@authenti8/contracts";
 import { loadConfig } from "../config.js";
 import { SupabaseService } from "../supabase/supabase.service.js";
 import type { CreateCheckoutDto } from "./billing.dto.js";
@@ -8,18 +8,13 @@ import { resolveBillingRoute, type BillingPurpose } from "./billing-event-route.
 
 type CheckoutResponse = { session_id: string; checkout_url: string };
 type PortalContext = { subscriptionId?: string };
-type PendingCheckoutContext = {
-  organizationId?: string;
-  checkoutIntentId?: string;
-  sessionId?: string;
-};
+type PendingCheckoutContext = { organizationId?: string; checkoutIntentId?: string; sessionId?: string };
 @Injectable()
 export class BillingService {
   private readonly config = loadConfig();
   private readonly logger = new Logger(BillingService.name);
 
   constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService) {}
-
   async summary(userId: string) {
     await this.reconcilePendingCheckout(userId);
     return this.supabase.rpc<BillingSummary>("authenti8_billing_summary", { userId });
@@ -29,13 +24,19 @@ export class BillingService {
     return this.supabase.rpc<BillingHistory>("authenti8_billing_history", { userId });
   }
 
+  capabilities(userId: string) {
+    return this.supabase.rpc<BillingCapabilities>("authenti8_billing_capabilities", { userId });
+  }
+  catalog() { return { currency: "USD", professionalAmountMinor: this.config.dodo.professionalAmountMinor, extraInterviewAmountMinor: this.config.dodo.extraInterviewAmountMinor }; }
   async createCheckout(userId: string, input: CreateCheckoutDto) {
     this.assertConfigured(input.purpose);
     if (input.purpose === "PROFESSIONAL") {
       await this.reconcilePendingCheckout(userId, true);
     }
     const quantity = input.purpose === "EXTRA_CREDITS" ? input.quantity ?? 1 : 1;
-    const intent = await this.beginCheckout(userId, input.purpose, quantity);
+    const amountMinor = input.purpose === "PROFESSIONAL" ? this.config.dodo.professionalAmountMinor
+      : quantity * this.config.dodo.extraInterviewAmountMinor;
+    const intent = await this.beginCheckout(userId, input.purpose, quantity, amountMinor);
     let result: CheckoutResponse;
     try {
       result = await this.requestCheckout(
@@ -199,9 +200,9 @@ export class BillingService {
     ));
   }
 
-  private async beginCheckout(userId: string, purpose: string, quantity: number) {
+  private async beginCheckout(userId: string, purpose: string, quantity: number, amountMinor: number) {
     const result = await this.supabase.rpc<CheckoutIntent>("authenti8_begin_checkout", {
-      userId, purpose, quantity,
+      userId, purpose, quantity, amountMinor,
     });
     if (result?.reason === "ACTIVE_PLAN") {
       throw new BadRequestException("Professional is already active for this workspace.");
@@ -219,7 +220,7 @@ export class BillingService {
       throw new BadRequestException("Extra interviews are available on Starter and Professional only.");
     }
     if (!result?.organizationId || !result.email || !result.checkoutIntentId) {
-      throw new BadRequestException("An owner or admin workspace is required.");
+      throw new BadRequestException("An owner or an approved manager is required.");
     }
     return result as Required<Pick<CheckoutIntent,
       "organizationId" | "email" | "checkoutIntentId">>;

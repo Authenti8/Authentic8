@@ -1,6 +1,6 @@
 import {
-  BadRequestException, Body, Controller, Get, Headers, HttpCode, Inject, Param, Post, RawBodyRequest, Req,
-  UnauthorizedException, UseGuards,
+  BadRequestException, Body, Controller, ForbiddenException, Get, Headers, HttpCode, Inject, Param,
+  Post, RawBodyRequest, Req, UnauthorizedException, UseGuards,
 } from "@nestjs/common";
 import type { Request } from "express";
 import type { AuthenticatedRequest } from "../auth/auth.types.js";
@@ -23,13 +23,30 @@ export class BillingController {
   ) {}
 
   @Get()
-  summary(@Req() request: AuthenticatedRequest) {
+  async summary(@Req() request: AuthenticatedRequest) {
+    await this.assertBillingRead(request.session!.userId);
     return this.billing.summary(request.session!.userId);
   }
 
   @Get("history")
-  history(@Req() request: AuthenticatedRequest) {
+  async history(@Req() request: AuthenticatedRequest) {
+    await this.assertBillingRead(request.session!.userId);
     return this.billing.history(request.session!.userId);
+  }
+
+  @Get("capabilities")
+  capabilities(@Req() request: AuthenticatedRequest) {
+    return this.billing.capabilities(request.session!.userId);
+  }
+
+  @Get("catalog")
+  catalog() {
+    return this.billing.catalog();
+  }
+
+  private async assertBillingRead(userId: string) {
+    const access = await this.billing.capabilities(userId);
+    if (!access?.canPurchase) throw new ForbiddenException("Billing access is not available.");
   }
 
   @Get("payments/:paymentId/invoice")

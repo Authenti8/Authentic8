@@ -71,9 +71,13 @@ export class OperationsController {
   constructor(@Inject(SupabaseService) private readonly supabase: SupabaseService) {}
 
   @Post("retention")
-  retention(@Headers("authorization") authorization?: string) {
+  async retention(@Headers("authorization") authorization?: string) {
     this.authorize(authorization);
-    return this.supabase.rpc("authenti8_run_retention");
+    const [interviews, commercial] = await Promise.all([
+      this.supabase.rpc("authenti8_run_retention"),
+      this.supabase.rpc("authenti8_retain_commercial_contacts"),
+    ]);
+    return { interviews, commercial };
   }
 
   @Post("recover")

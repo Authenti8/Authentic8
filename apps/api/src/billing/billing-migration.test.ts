@@ -125,7 +125,7 @@ async function assertCheckoutGate(database: PGlite, userId: string) {
     [first.checkoutIntentId],
   );
   const retry = await rpc<{ checkoutIntentId: string }>(database, "authenti8_begin_checkout", input);
-  assert.notEqual(retry.checkoutIntentId, first.checkoutIntentId);
+  assert.equal(retry.checkoutIntentId, first.checkoutIntentId);
   await rpc(database, "authenti8_fail_checkout_intent", {
     userId, checkoutIntentId: retry.checkoutIntentId,
   });

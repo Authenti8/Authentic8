@@ -1,9 +1,10 @@
 import type { CommercialLead, CommercialOrganization, CommercialOverview,
-  PlatformStaffMember } from "@authenti8/contracts";
+  EnterpriseAgreement, PlatformStaffMember } from "@authenti8/contracts";
 import { ArrowLeft, BriefcaseBusiness, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { getServerApi, requireSession } from "@/lib/server-api";
-import { convertCommercialLead, manageSalesStaff, updateCommercialLead } from "./actions";
+import { convertCommercialLead, issueEnterpriseInvoice, manageSalesStaff,
+  saveEnterpriseProposal, updateCommercialLead } from "./actions";
 import "./commercial.css";
 
 const stages = ["NEW", "CONTACTED", "QUALIFIED", "DEMO_SCHEDULED",
@@ -15,6 +16,7 @@ export default async function CommercialPage({ searchParams }: PageProps<"/admin
   const query = await searchParams;
   const overview = await getServerApi<CommercialOverview>(
     `/commercial/overview?${commercialQuery(query)}`);
+  const agreements = await getServerApi<EnterpriseAgreement[]>("/commercial/enterprise");
   const organizationQuery = first(query.organizationQuery).trim();
   const organizations = overview.role === "PLATFORM_FOUNDER" && organizationQuery.length >= 2
     ? await getServerApi<CommercialOrganization[]>(`/commercial/organizations?query=${
@@ -23,7 +25,8 @@ export default async function CommercialPage({ searchParams }: PageProps<"/admin
     && member.status === "ACTIVE");
   return <main className="commercial-page"><CommercialHeader overview={overview} />
     {overview.role === "PLATFORM_FOUNDER" && <StaffPanel />}
-    <Pipeline overview={overview} query={query} sales={sales} organizations={organizations} /></main>;
+    <Pipeline overview={overview} query={query} sales={sales} organizations={organizations} />
+    <EnterprisePanel agreements={agreements} founder={overview.role === "PLATFORM_FOUNDER"} /></main>;
 }
 
 function CommercialHeader({ overview }: { overview: CommercialOverview }) {
@@ -120,6 +123,37 @@ function LeadStatus({ lead, overview, organizations }: { lead: CommercialLead;
       && !lead.convertedOrganizationId && organizations.length === 0
       && <small>Search for the customer organization above to link this lead.</small>}
     {lead.convertedOrganizationId && <small>Customer organization linked</small>}</>;
+}
+
+function EnterprisePanel({ agreements, founder }: { agreements: EnterpriseAgreement[];
+  founder: boolean }) {
+  return <section className="commercial-panel"><div><span>Enterprise</span>
+    <h2>Contracts, invoices, and paid credits</h2></div><div className="lead-list">
+    {agreements.length ? agreements.map((agreement) => <article key={agreement.id}>
+      <div className="lead-identity"><span>{agreement.state}</span><h3>{agreement.organizationName}</h3>
+        <p>{agreement.currency} {(agreement.contractValueMinor / 100).toLocaleString(undefined,
+          { minimumFractionDigits: 2 })} · {agreement.purchasedCredits} credits</p>
+        <small>Invoiced {agreement.invoiceTotalMinor} · Paid {agreement.paymentTotalMinor}</small></div>
+      {founder && ["PROPOSAL", "CONTRACT_PENDING", "PAYMENT_PENDING"].includes(agreement.state)
+        && <form action={issueEnterpriseInvoice}><input type="hidden" name="agreementId"
+          value={agreement.id} /><input name="provider" required placeholder="Invoice provider" />
+          <input name="providerInvoiceId" required placeholder="Provider invoice ID" />
+          <input type="datetime-local" name="dueAt" required />
+          <input name="signedDocumentReference" minLength={5} maxLength={500} required
+            placeholder="Signed contract reference" /><button>Issue invoice</button></form>}
+    </article>) : <p>No enterprise agreements yet. Converted won leads can be proposed below.</p>}</div>
+    <form action={saveEnterpriseProposal}><input name="leadId" required placeholder="Won lead UUID" />
+      <input name="organizationId" required placeholder="Linked organization UUID" />
+      <input type="number" min={1} name="contractValueMinor" required placeholder="Contract minor units" />
+      <input name="currency" defaultValue="USD" pattern="[A-Z]{3}" required />
+      <select name="billingInterval"><option>ANNUAL</option><option>MONTHLY</option>
+        <option>ONE_TIME</option></select><input type="number" min={1} max={1000000}
+        name="purchasedCredits" required placeholder="Interview credits" />
+      <input type="datetime-local" name="effectiveAt" required />
+      <input type="datetime-local" name="expiresAt" /><input type="number" min={0} max={365}
+        name="paymentTermsDays" defaultValue={30} required />
+      <input name="signedDocumentReference" maxLength={500} placeholder="Optional signed reference" />
+      <button>Save proposal</button></form></section>;
 }
 
 function first(value: string | string[] | undefined) {

@@ -3,9 +3,7 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
-type LeadType = "DEMO_REQUEST" | "WAITLIST";
-
-export function LeadForm({ leadType }: { leadType: LeadType }) {
+export function LeadForm() {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -20,7 +18,7 @@ export function LeadForm({ leadType }: { leadType: LeadType }) {
     try {
       const response = await fetch("/api/v1/commercial/leads", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ leadType, fullName: values.get("fullName"),
+        body: JSON.stringify({ leadType: "WAITLIST", fullName: values.get("fullName"),
           email: values.get("email"), companyName: values.get("companyName"),
           sourcePath: window.location.pathname, referrer: document.referrer || undefined,
           attribution: attribution() }),
@@ -45,7 +43,7 @@ export function LeadForm({ leadType }: { leadType: LeadType }) {
       <label className="lead-trap" aria-hidden="true">Website<input name="website" tabIndex={-1} /></label>
     </div>
     <button className="button-primary" disabled={pending} type="submit">
-      {pending ? "Submitting…" : leadType === "DEMO_REQUEST" ? "Book a demo" : "Join the waitlist"}
+      {pending ? "Submitting…" : "Join the waitlist"}
       {!pending && <ArrowRight size={17} />}
     </button>
     <p className={`lead-message${error ? " is-error" : ""}`} aria-live="polite">

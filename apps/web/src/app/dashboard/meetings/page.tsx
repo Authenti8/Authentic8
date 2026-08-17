@@ -1,18 +1,24 @@
-import type { InterviewSummary, MeetingsPage } from "@authenti8/contracts";
+import type { InterviewSummary, MeetingsPage, OrganizationMembersOverview } from "@authenti8/contracts";
 import { CalendarDays, ExternalLink, FileText, UserRound } from "lucide-react";
 import Form from "next/form";
 import Link from "next/link";
 import { LocalDateTime } from "@/components/dashboard/local-date-time";
 import { MeetingsAutoRefresh } from "@/components/dashboard/meetings-auto-refresh";
-import { getServerApi } from "@/lib/server-api";
+import { getServerApi, requireSession } from "@/lib/server-api";
+import { assignInterview } from "./actions";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const filters = ["Upcoming", "Live", "Completed", "Confirmed", "Not Detected",
   "Unable to Verify", "Cancelled"];
 
 export default async function MeetingsPage({ searchParams }: { searchParams: Search }) {
+  const session = await requireSession();
   const query = singleValues(await searchParams);
-  const meetings = await getServerApi<MeetingsPage>(`/meetings?${apiQuery(query)}`);
+  const [meetings, team] = await Promise.all([
+    getServerApi<MeetingsPage>(`/meetings?${apiQuery(query)}`),
+    session.organization?.role !== "HR"
+      ? getServerApi<OrganizationMembersOverview>("/organization/members") : Promise.resolve(null),
+  ]);
   const hasActiveMeeting = meetings.items.some((meeting) =>
     ["MONITORING_ACTIVE", "MONITORING_INTERRUPTED", "MEETING_COMPLETED", "REPORT_PROCESSING"]
       .includes(meeting.status));
@@ -23,7 +29,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Sea
     </div><Link className="button-secondary" href="/dashboard/integrations">Manage integration</Link>
     </header>
     <MeetingFilters query={query} />
-    {meetings.items.length ? <MeetingList meetings={meetings.items} /> : <EmptyMeetings />}
+    {meetings.items.length ? <MeetingList meetings={meetings.items} team={team} /> : <EmptyMeetings />}
     {meetings.nextCursor ? <Link className="button-secondary meetings-more"
       href={`/dashboard/meetings?${pageQuery(query, meetings.nextCursor)}`}>Load older meetings</Link>
       : null}
@@ -46,7 +52,8 @@ function MeetingFilters({ query }: { query: Record<string, string> }) {
   </Form>;
 }
 
-function MeetingList({ meetings }: { meetings: InterviewSummary[] }) {
+function MeetingList({ meetings, team }: { meetings: InterviewSummary[];
+  team: OrganizationMembersOverview | null }) {
   return <section className="meeting-list">{meetings.map((meeting) =>
     <article className="meeting-row" id={meeting.id} key={meeting.id}>
       <MeetingDate start={meeting.scheduledStart} />
@@ -55,6 +62,13 @@ function MeetingList({ meetings }: { meetings: InterviewSummary[] }) {
         <p><UserRound size={13} /> {meeting.candidateName || meeting.candidateEmail}</p></div>
       <div className="meeting-statuses"><LifecycleBadge status={meeting.status} />
         <ProtectionBadge status={meeting.protectionStatus} /></div>
+      {team && <form action={assignInterview}><input type="hidden" name="interviewId"
+        value={meeting.id} /><select aria-label={`Responsible member for ${meeting.title}`}
+        defaultValue={meeting.responsibleMemberUserId ?? ""} name="memberUserId" required>
+        <option value="">Assign interviewer</option>{team.members.filter((member) =>
+          member.status === "ACTIVE").map((member) => <option key={member.userId}
+          value={member.userId}>{member.name} · {member.role}</option>)}</select>
+        <button type="submit">Assign</button></form>}
       <Link aria-label={`Open evidence for ${meeting.title}`} href={`/dashboard/meetings/${meeting.id}`}>
         <FileText size={16} /></Link>
       <a aria-label={`Open ${meeting.title} in Google Meet`} href={meeting.meetUrl}

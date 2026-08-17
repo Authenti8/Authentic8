@@ -63,6 +63,7 @@ Environment values needed for the starter:
 | `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY` | For billing | Dodo test API and webhook secrets |
 | `DODO_PROFESSIONAL_PRODUCT_ID` | For billing | Recurring $1,000/month product ID |
 | `DODO_EXTRA_INTERVIEW_PRODUCT_ID` | For billing | One-time $5 product ID |
+| `DODO_PROFESSIONAL_AMOUNT_MINOR`, `DODO_EXTRA_INTERVIEW_AMOUNT_MINOR` | For delegated billing | Trusted provider prices in minor currency units; verified payments must match |
 | `TRUSTED_PROXIES` | Yes | Known proxy IPs/CIDRs used to resolve the real client IP; keep API ingress private to them |
 | `SMTP_*` | Production only | Sends verification and password-reset emails |
 | `AUTH_MAIL_ENCRYPTION_KEY` | Production only | Base64-encoded 32-byte key that encrypts pending auth-email tokens in the durable outbox |

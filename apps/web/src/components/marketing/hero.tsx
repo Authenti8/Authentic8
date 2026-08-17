@@ -34,10 +34,9 @@ export function Hero() {
             clear integrity timeline—flagging cheating tools as they appear.
           </p>
           <div className="hero-actions">
-            <a className="button-primary" href="#book-demo">
-              Book a demo <ArrowRight size={17} />
+            <a className="button-primary" href="#waitlist">
+              Join the waitlist <ArrowRight size={17} />
             </a>
-            <a className="button-secondary" href="#waitlist">Join the waitlist</a>
           </div>
         </div>
       </div>

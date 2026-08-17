@@ -43,6 +43,45 @@ export async function convertCommercialLead(formData: FormData) {
   revalidateCommercial();
 }
 
+export async function saveEnterpriseProposal(formData: FormData) {
+  await requireSession();
+  const input = {
+    leadId: String(formData.get("leadId") ?? ""),
+    organizationId: String(formData.get("organizationId") ?? ""),
+    contractValueMinor: Number(formData.get("contractValueMinor")),
+    currency: String(formData.get("currency") ?? "").trim().toUpperCase(),
+    billingInterval: String(formData.get("billingInterval") ?? ""),
+    purchasedCredits: Number(formData.get("purchasedCredits")),
+    effectiveAt: `${String(formData.get("effectiveAt") ?? "")}:00Z`,
+    expiresAt: formData.get("expiresAt") ? `${String(formData.get("expiresAt"))}:00Z` : undefined,
+    paymentTermsDays: Number(formData.get("paymentTermsDays")),
+    signedDocumentReference: String(formData.get("signedDocumentReference") ?? "").trim() || undefined,
+  };
+  if (!uuid(input.leadId) || !uuid(input.organizationId) || !Number.isSafeInteger(
+    input.contractValueMinor) || input.contractValueMinor < 1 || !/^[A-Z]{3}$/.test(input.currency)
+      || !["MONTHLY", "ANNUAL", "ONE_TIME"].includes(input.billingInterval)
+      || !Number.isInteger(input.purchasedCredits) || input.purchasedCredits < 1) {
+    throw new Error("Invalid enterprise proposal.");
+  }
+  await postServerApi("/commercial/enterprise/proposal", input);
+  revalidateCommercial();
+}
+
+export async function issueEnterpriseInvoice(formData: FormData) {
+  await requireSession();
+  const agreementId = String(formData.get("agreementId") ?? "");
+  const provider = String(formData.get("provider") ?? "").trim();
+  const providerInvoiceId = String(formData.get("providerInvoiceId") ?? "").trim();
+  const signedDocumentReference = String(formData.get("signedDocumentReference") ?? "").trim();
+  const dueAt = `${String(formData.get("dueAt") ?? "")}:00Z`;
+  if (!uuid(agreementId) || provider.length < 2 || providerInvoiceId.length < 2
+      || signedDocumentReference.length < 5) throw new Error("Invalid enterprise invoice.");
+  await postServerApi("/commercial/enterprise/invoice", {
+    agreementId, provider, providerInvoiceId, signedDocumentReference, dueAt,
+  });
+  revalidateCommercial();
+}
+
 function revalidateCommercial() {
   revalidatePath("/commercial");
   revalidatePath("/admin/commercial");

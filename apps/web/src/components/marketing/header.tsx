@@ -11,8 +11,7 @@ export function MarketingHeader() {
           <a href="#faq">FAQ</a>
         </nav>
         <div className="nav-actions">
-          <a href="#waitlist">Join waitlist</a>
-          <a className="button-primary nav-cta" href="#book-demo">Book a demo</a>
+          <a className="button-primary nav-cta" href="#waitlist">Join waitlist</a>
         </div>
       </div>
     </header>
