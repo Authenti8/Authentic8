@@ -44,6 +44,22 @@ test("authorization failures clear prior logs instead of leaving a stale panel",
   assert.match(compiled, /authorizationFailure\(error\)[\s\S]*panel\.remove\(\)/);
 });
 
+test("the live overlay is draggable, persistent, click-through, and animates additions", () => {
+  const compiled = readFileSync(new URL("../src/content.js", import.meta.url), "utf8");
+  assert.match(compiled, /authenti8:recruiter-panel-state/);
+  assert.match(compiled, /aria-live=\"polite\"/);
+  assert.match(compiled, /pointer-events:none/);
+  assert.match(compiled, /@keyframes log-enter/);
+  assert.match(compiled, /prefers-reduced-motion: reduce/);
+  assert.doesNotMatch(compiled, /replaceChildren\(\.\.\.logs\.map/);
+  assert.doesNotMatch(compiled, /(?:candidate|li)\{[^}]*pointer-events:auto/);
+  assert.match(compiled, /main\.hidden = minimized;[\s\S]*positionPanel\(panel, bounds\.left, bounds\.top\)/);
+  assert.match(compiled, /minimized: panel\.classList\.contains\("minimized"\)/);
+  const persistence = compiled.slice(compiled.indexOf("async function persistPanelState"),
+    compiled.indexOf("async function restorePanelState"));
+  assert.doesNotMatch(persistence, /storage\.local\.get/);
+});
+
 test("the background proxy accepts only recruiter read endpoints", () => {
   assert.equal(validRecruiterApiPath("/recruiter-extension/meetings/abc-defg-hij"), true);
   assert.equal(validRecruiterApiPath(

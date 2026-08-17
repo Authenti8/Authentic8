@@ -94,42 +94,107 @@ function createPanel(meeting: Meeting) {
   host.id = "authenti8-recruiter-panel";
   document.documentElement.append(host);
   const root = host.attachShadow({ mode: "closed" });
-  root.innerHTML = `<style>${styles}</style><section><header><b>Authenti8</b><span></span><button>−</button></header>
-    <main><h3></h3><small></small><ol></ol></main></section>`;
+  root.innerHTML = `<style>${styles}</style><section aria-label="Authenti8 live integrity timeline">
+    <header title="Drag to reposition"><div class="brand"><i></i><b>Protected by Authenti8</b></div>
+      <span></span><button type="button" aria-label="Minimize integrity timeline">−</button></header>
+    <main><div class="candidate"><h3></h3><small></small></div>
+      <ol aria-live="polite" aria-relevant="additions"></ol></main></section>`;
   const section = root.querySelector("section") as HTMLElement;
   const header = root.querySelector("header") as HTMLElement;
   const main = root.querySelector("main") as HTMLElement;
+  const list = root.querySelector("ol") as HTMLOListElement;
+  const button = root.querySelector("button") as HTMLButtonElement;
+  const items = new Map<number, HTMLLIElement>();
   root.querySelector("h3")!.textContent = meeting.candidateName || "Candidate";
   root.querySelector("small")!.textContent = meeting.platform ? `Platform: ${meeting.platform}` : "Device pending";
-  root.querySelector("button")!.addEventListener("click", () => main.toggleAttribute("hidden"));
-  makeDraggable(section, header);
-  return { remove: () => host.remove(), render(logs: readonly RecruiterLog[], status: PanelStatus) {
+  button.addEventListener("click", () => setMinimized(section, main, button,
+    !section.classList.contains("minimized")));
+  const stopDragging = makeDraggable(section, header);
+  void restorePanelState(section, main, button);
+  return { remove: () => { stopDragging(); host.remove(); },
+    render(logs: readonly RecruiterLog[], status: PanelStatus) {
     root.querySelector("span")!.textContent = status.replaceAll("_", " ");
-    root.querySelector("ol")!.replaceChildren(...logs.map(renderLog));
+    const active = new Set(logs.map((event) => event.sequence));
+    for (const [sequence, item] of items) if (!active.has(sequence)) {
+      item.remove(); items.delete(sequence);
+    }
+    let added = false;
+    for (const event of logs) {
+      let item = items.get(event.sequence);
+      if (!item) { item = renderLog(event); items.set(event.sequence, item); added = true; }
+      list.append(item);
+    }
+    if (added) requestAnimationFrame(() => list.scrollTo({ top: list.scrollHeight,
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
   } };
 }
 
 function renderLog(event: RecruiterLog) {
   const item = document.createElement("li");
+  const message = document.createElement("strong");
   const time = document.createElement("time");
-  time.textContent = new Date(event.occurredAt).toLocaleTimeString();
-  item.textContent = event.message;
-  item.prepend(time);
+  message.textContent = event.message;
+  time.dateTime = event.occurredAt;
+  time.textContent = new Date(event.occurredAt).toLocaleTimeString([], {
+    hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  item.append(message, time);
   if (event.kind === "CONFIRMED_DETECTION") item.className = "danger";
+  else if (event.kind === "MONITORING_INTERRUPTED" || event.kind === "RECONNECTING")
+    item.className = "warning";
   return item;
 }
 
 function makeDraggable(panel: HTMLElement, handle: HTMLElement) {
-  let offsetX = 0; let offsetY = 0;
+  let offsetX = 0; let offsetY = 0; let dragging = false;
   handle.addEventListener("pointerdown", (event) => {
-    offsetX = event.clientX - panel.offsetLeft; offsetY = event.clientY - panel.offsetTop;
+    if ((event.target as Element).closest("button")) return;
+    const bounds = panel.getBoundingClientRect();
+    offsetX = event.clientX - bounds.left; offsetY = event.clientY - bounds.top;
+    dragging = true; panel.classList.add("dragging");
     handle.setPointerCapture(event.pointerId);
   });
   handle.addEventListener("pointermove", (event) => {
-    if (!handle.hasPointerCapture(event.pointerId)) return;
-    panel.style.left = `${Math.max(0, event.clientX - offsetX)}px`;
-    panel.style.top = `${Math.max(0, event.clientY - offsetY)}px`; panel.style.right = "auto";
+    if (!dragging || !handle.hasPointerCapture(event.pointerId)) return;
+    positionPanel(panel, event.clientX - offsetX, event.clientY - offsetY);
   });
+  const finish = () => { if (!dragging) return; dragging = false;
+    panel.classList.remove("dragging"); void persistPanelState(panel); };
+  handle.addEventListener("pointerup", finish); handle.addEventListener("pointercancel", finish);
+  const resize = () => { const bounds = panel.getBoundingClientRect();
+    positionPanel(panel, bounds.left, bounds.top); };
+  addEventListener("resize", resize);
+  return () => removeEventListener("resize", resize);
+}
+
+const panelStateKey = "authenti8:recruiter-panel-state";
+function positionPanel(panel: HTMLElement, left: number, top: number) {
+  const edge = 12;
+  const x = Math.min(Math.max(edge, left), Math.max(edge, innerWidth - panel.offsetWidth - edge));
+  const y = Math.min(Math.max(edge, top), Math.max(edge, innerHeight - panel.offsetHeight - edge));
+  panel.style.left = `${x}px`; panel.style.top = `${y}px`; panel.style.right = "auto";
+}
+async function persistPanelState(panel: HTMLElement) {
+  const bounds = panel.getBoundingClientRect();
+  await chrome.storage.local.set({ [panelStateKey]: { left: bounds.left, top: bounds.top,
+    minimized: panel.classList.contains("minimized") } }).catch(() => undefined);
+}
+async function restorePanelState(panel: HTMLElement, main: HTMLElement, button: HTMLButtonElement) {
+  const stored: Record<string, unknown> = await chrome.storage.local.get([panelStateKey])
+    .catch(() => ({}));
+  const state = stored[panelStateKey];
+  if (!record(state)) return;
+  if (typeof state.left === "number" && typeof state.top === "number")
+    positionPanel(panel, state.left, state.top);
+  if (state.minimized === true) setMinimized(panel, main, button, true, false);
+}
+function setMinimized(panel: HTMLElement, main: HTMLElement, button: HTMLButtonElement,
+  minimized: boolean, save = true) {
+  panel.classList.toggle("minimized", minimized); main.hidden = minimized;
+  button.textContent = minimized ? "+" : "−";
+  button.setAttribute("aria-label", `${minimized ? "Expand" : "Minimize"} integrity timeline`);
+  const bounds = panel.getBoundingClientRect();
+  positionPanel(panel, bounds.left, bounds.top);
+  if (save) void persistPanelState(panel);
 }
 
 function delay(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
@@ -176,9 +241,23 @@ function validLog(value: RecruiterLog) {
 class ProxyError extends Error {
   constructor(readonly status: number) { super(`Proxy request failed: ${status}`); }
 }
-const styles = `:host{all:initial}section{position:fixed;z-index:2147483647;right:24px;top:90px;width:390px;
-background:#111827;color:#fff;border:1px solid #64748b;border-radius:18px;font:14px system-ui;box-shadow:0 18px 50px #0008}
-header{display:flex;gap:12px;align-items:center;padding:16px;cursor:move;border-bottom:1px solid #334155}header b{flex:1}
-header span{font-size:11px;color:#6ee7b7}button{color:#fff;background:none;border:0;font-size:20px}main{padding:16px}h3{margin:0 0 4px}
-small{color:#94a3b8}ol{list-style:none;padding:0;margin:14px 0 0;max-height:330px;overflow:auto}li{padding:10px;border-top:1px solid #334155}
-time{color:#94a3b8;margin-right:10px}.danger{color:#fca5a5}[hidden]{display:none}`;
+const styles = `:host{all:initial}section{position:fixed;z-index:2147483647;right:24px;top:90px;width:min(430px,calc(100vw - 24px));
+color:#fff;font:14px Inter,ui-sans-serif,system-ui,sans-serif;pointer-events:none;filter:drop-shadow(0 18px 28px #0007)}
+header{width:max-content;max-width:100%;margin-left:auto;display:flex;gap:10px;align-items:center;padding:7px 8px 7px 12px;cursor:grab;
+pointer-events:auto;background:#111827e8;border:1px solid #ffffff24;border-radius:999px;user-select:none;touch-action:none}
+.dragging header{cursor:grabbing}.brand{display:flex;align-items:center;gap:7px;color:#b7f7d8;text-transform:uppercase;font-size:11px;letter-spacing:.035em}
+.brand i{width:8px;height:8px;border-radius:50%;background:#24d397;box-shadow:0 0 0 6px #1677ff22}.brand b{white-space:nowrap}
+header span{font-size:10px;color:#cbd5e1;white-space:nowrap}button{display:grid;place-items:center;width:28px;height:28px;padding:0;color:#fff;
+background:#ffffff12;border:1px solid #ffffff1f;border-radius:50%;font:18px/1 system-ui;cursor:pointer}button:hover{background:#ffffff24}
+main{margin-top:9px}.candidate{width:max-content;max-width:calc(100% - 20px);margin:0 8px 8px auto;padding:6px 11px;text-align:right;
+background:#111827c7;border:1px solid #ffffff1c;border-radius:10px;backdrop-filter:blur(10px)}h3{display:inline;margin:0;font-size:12px}
+small{margin-left:8px;color:#aeb9ca;font-size:10px}ol{display:flex;flex-direction:column;gap:9px;list-style:none;padding:0 4px 8px;margin:0;
+max-height:min(58vh,440px);overflow:auto;pointer-events:none;scrollbar-width:none}ol::-webkit-scrollbar{display:none}
+li{box-sizing:border-box;min-height:62px;padding:14px 17px;display:flex;align-items:center;justify-content:space-between;gap:14px;
+background:#373f46e8;border:1px solid #ffffff38;border-radius:16px;box-shadow:0 12px 28px #0004;backdrop-filter:blur(12px);
+animation:log-enter 620ms cubic-bezier(.18,.86,.32,1.12) both}li:nth-child(odd){background:#52595eee}li strong{font-size:15px;font-weight:520;line-height:1.3}
+time{flex:none;color:#e5e7eb;font:10px ui-monospace,SFMono-Regular,Consolas,monospace}.warning{background:#67512fed!important;border-color:#f6c45388}
+.danger{background:#6e3337f2!important;border-color:#df888e;color:#fff}.minimized{width:auto;filter:drop-shadow(0 8px 18px #0006)}[hidden]{display:none}
+@keyframes log-enter{from{opacity:0;filter:blur(5px);transform:translateY(13px) scale(.96)}to{opacity:1;filter:blur(0);transform:none}}
+@media(max-width:600px){section{right:12px;top:72px}header span{display:none}li{min-height:54px;padding:12px 14px}}
+@media(prefers-reduced-motion:reduce){li{animation:none}ol{scroll-behavior:auto}}`;
