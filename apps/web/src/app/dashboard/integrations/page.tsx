@@ -19,7 +19,7 @@ export default async function IntegrationsPage({ searchParams }: PageProps<"/das
     getServerApi<IntegrationSummary>("/integrations"), requireSession(), searchParams,
   ]);
   const connected = integration.status === "ACTIVE";
-  const canManage = ["OWNER", "MANAGER"].includes(session.organization?.role ?? "");
+  const canConnect = ["OWNER", "MANAGER", "HR"].includes(session.organization?.role ?? "");
   const notice = integrationNotice(query.connected, query.error, query.warning);
   return (
     <div className="dashboard-page">
@@ -28,7 +28,7 @@ export default async function IntegrationsPage({ searchParams }: PageProps<"/das
       <section className="integration-primary">
         <ProviderLogo Icon={SiGooglemeet} tone="meet" />
         <div className="integration-copy"><div><span>Available now</span><h2>Google Meet & Calendar</h2></div><p>Discover qualifying interviews, keep schedule changes synchronized, and prepare candidate monitoring automatically.</p>{connected ? <div className="connected-meta"><span><CheckCircle2 size={14} /> Connected as {integration.connectedEmail}</span><SyncStatus integration={integration} /></div> : null}</div>
-        <IntegrationActions canManage={canManage} connected={connected} />
+        <IntegrationActions canConnect={canConnect} connected={connected} />
       </section>
       <section className="integration-grid">{upcoming.map((provider) => <ComingSoon key={provider.name} {...provider} />)}</section>
       <aside className="integration-security"><Video size={18} /><div><strong>Calendar access stays separate from sign-in.</strong><p>Authenti8 requests read-only calendar access, encrypts provider tokens at rest, and supports disconnect at any time.</p></div></aside>

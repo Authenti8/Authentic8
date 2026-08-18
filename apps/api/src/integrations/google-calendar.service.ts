@@ -29,7 +29,7 @@ export class GoogleCalendarService {
       userId, stateHash: hashToken(state), verifier,
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     });
-    if (!created) throw new BadRequestException("Only workspace owners and admins can connect integrations.");
+    if (!created) throw new BadRequestException("Only active organization interviewers can connect calendars.");
     return { state, url: this.authorizationUrl(state, verifier) };
   }
 

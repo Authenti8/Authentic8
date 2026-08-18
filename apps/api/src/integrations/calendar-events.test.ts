@@ -19,6 +19,21 @@ test("calendar normalization accepts qualifying Meet interviews", () => {
   assert.equal(event && "candidateEmail" in event ? event.candidateEmail : null, "candidate@example.com");
 });
 
+test("calendar normalization gives attendee copies one canonical interview identity", () => {
+  const base = { iCalUID: "shared-interview@google.com", summary: "Technical interview",
+    hangoutLink: "https://meet.google.com/abc-defg-hij",
+    organizer: { email: "recruiter@acme.com" },
+    attendees: [{ email: "candidate@example.com" }],
+    start: { dateTime: "2026-08-10T10:00:00Z" },
+    end: { dateTime: "2026-08-10T11:00:00Z" } };
+  const ownerCopy = normalizeGoogleEvent({ ...base, id: "owner-copy" }, "acme.com");
+  const hrCopy = normalizeGoogleEvent({ ...base, id: "hr-copy" }, "acme.com");
+  assert.equal(ownerCopy && "canonicalKey" in ownerCopy ? ownerCopy.canonicalKey : null,
+    "ical:shared-interview@google.com");
+  assert.equal(hrCopy && "canonicalKey" in hrCopy ? hrCopy.canonicalKey : null,
+    "ical:shared-interview@google.com");
+});
+
 test("calendar normalization never treats room resources as candidates", () => {
   const event = normalizeGoogleEvent({
     id: "event-room", summary: "Technical interview",

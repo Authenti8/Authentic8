@@ -18,7 +18,8 @@ export function normalizeGoogleEvent(event: GoogleEvent, organizationDomain: str
   if (!candidate || !interviewTitle.test(title)) return excluded(event);
   const titleMatch = title.match(interviewTitle)?.[0]?.toLowerCase() ?? "interview";
   return {
-    eventId: event.id, cancelled: false, meetCode: meetCode(meetUrl), meetUrl,
+    eventId: event.id, canonicalKey: canonicalKey(event, meetUrl),
+    cancelled: false, meetCode: meetCode(meetUrl), meetUrl,
     candidateEmail: candidate.email!.toLowerCase(), candidateName: candidate.displayName ?? null,
     organizerEmail, title, reason: classificationReason(
       organizationDomain, candidate.email!, titleMatch,
@@ -26,6 +27,14 @@ export function normalizeGoogleEvent(event: GoogleEvent, organizationDomain: str
     start, end, updatedAt: event.updated ?? null,
     participants: participants(event.attendees ?? [], candidate.email!, organizationDomain),
   };
+}
+
+function canonicalKey(event: GoogleEvent, meetUrl: string) {
+  if (!event.iCalUID) return `google:${event.id}:${meetCode(meetUrl)}`;
+  if (!event.recurringEventId) return `ical:${event.iCalUID}`;
+  const occurrence = event.originalStartTime?.dateTime ?? event.originalStartTime?.date
+    ?? event.start?.dateTime;
+  return `ical:${event.iCalUID}:${occurrence}`;
 }
 
 function classificationReason(domain: string, candidateEmail: string, keyword: string) {

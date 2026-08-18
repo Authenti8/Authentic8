@@ -17,6 +17,8 @@ export type GoogleAttendee = {
 
 export type GoogleEvent = {
   id?: string;
+  iCalUID?: string;
+  recurringEventId?: string;
   status?: string;
   summary?: string;
   updated?: string;
@@ -26,6 +28,7 @@ export type GoogleEvent = {
   attendees?: GoogleAttendee[];
   start?: { dateTime?: string };
   end?: { dateTime?: string };
+  originalStartTime?: { date?: string; dateTime?: string };
 };
 
 export type EventPage = {

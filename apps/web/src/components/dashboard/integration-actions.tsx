@@ -5,14 +5,14 @@ import { useState } from "react";
 import { LoaderCircle, RefreshCw, Unplug } from "lucide-react";
 import { postJson } from "@/lib/api";
 
-export function IntegrationActions({ connected, canManage }: {
+export function IntegrationActions({ connected, canConnect }: {
   connected: boolean;
-  canManage: boolean;
+  canConnect: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"sync" | "disconnect" | null>(null);
   const [error, setError] = useState("");
-  if (!canManage) return <span className="plan-note">Owner or admin access is required.</span>;
+  if (!canConnect) return <span className="plan-note">Active interviewer access is required.</span>;
   if (!connected) return <button className="button-primary" onClick={() => {
     const connectUrl = new URL("/api/v1/integrations/google/connect", window.location.origin);
     window.location.assign(connectUrl.toString());
