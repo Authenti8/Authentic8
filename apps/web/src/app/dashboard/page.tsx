@@ -2,6 +2,7 @@ import type { DashboardOverview, IntegrationSummary } from "@authenti8/contracts
 import { ArrowRight, CalendarDays, Check, FileCheck2, Link2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { LocalDateTime } from "@/components/dashboard/local-date-time";
+import { paymentOrigin } from "@/lib/feature-origins";
 import { getServerApi, requireSession } from "@/lib/server-api";
 
 export default async function DashboardPage() {
@@ -12,10 +13,11 @@ export default async function DashboardPage() {
   const integrationConnected = integration.status === "ACTIVE";
   const firstName = session.user.fullName.split(" ")[0] || "there";
   const workspace = session.organization?.name ?? "Your workspace";
+  const billingHref = new URL("/dashboard/subscription", paymentOrigin()).toString();
   return (
     <div className="dashboard-page">
-      <OverviewHero firstName={firstName} integrationConnected={integrationConnected}
-        overview={overview} workspace={workspace} />
+      <OverviewHero billingHref={billingHref} firstName={firstName}
+        integrationConnected={integrationConnected} overview={overview} workspace={workspace} />
       <section aria-label="Workspace metrics" className="dashboard-cards">
         <StatCard icon={Link2} label="Credits available" note={`${overview.used} consumed`} value={String(overview.balance)} />
         <StatCard icon={CalendarDays} label="Upcoming" note="Scheduled interviews" value={String(overview.upcoming)} />
@@ -23,7 +25,7 @@ export default async function DashboardPage() {
       </section>
       {overview.recentReports.length ? <RecentReports reports={overview.recentReports} /> : null}
       <section className="dashboard-grid">
-        <LaunchChecklist integrationConnected={integrationConnected} />
+        <LaunchChecklist billingHref={billingHref} integrationConnected={integrationConnected} />
         <EvidencePanel />
       </section>
     </div>
@@ -34,7 +36,8 @@ function RecentReports({ reports }: { reports: DashboardOverview["recentReports"
   return <section className="recent-reports"><div className="card-heading"><span>Latest evidence</span><h2>Recent reports</h2></div>{reports.map((report) => <Link href={`/dashboard/meetings/${report.interviewId}`} key={report.interviewId}><span><strong>{report.title}</strong><small><LocalDateTime display="date-time" value={report.generatedAt} /></small></span><b>{report.result.replaceAll("_", " ")}</b><ArrowRight size={14} /></Link>)}</section>;
 }
 
-function OverviewHero({ firstName, workspace, overview, integrationConnected }: {
+function OverviewHero({ billingHref, firstName, workspace, overview, integrationConnected }: {
+  billingHref: string;
   firstName: string;
   workspace: string;
   overview: DashboardOverview;
@@ -43,15 +46,18 @@ function OverviewHero({ firstName, workspace, overview, integrationConnected }: 
   const readiness = integrationConnected ? 75 : 50;
   return (
     <header className="overview-hero">
-      <div className="overview-copy"><span className="overview-kicker">Workspace overview</span><h1>Welcome, {firstName}.</h1><p><strong>{workspace}</strong> is ready for pilot configuration. Complete the launch steps to prepare your first protected interview.</p><div className="overview-actions"><Link className="button-primary" href="/dashboard/subscription">Plan your pilot <ArrowRight size={16} /></Link><Link className="button-secondary" href="/dashboard/meetings">View interviews</Link></div></div>
+      <div className="overview-copy"><span className="overview-kicker">Workspace overview</span><h1>Welcome, {firstName}.</h1><p><strong>{workspace}</strong> is ready for pilot configuration. Complete the launch steps to prepare your first protected interview.</p><div className="overview-actions"><a className="button-primary" href={billingHref}>Plan your pilot <ArrowRight size={16} /></a><Link className="button-secondary" href="/dashboard/meetings">View interviews</Link></div></div>
       <div className="readiness-card"><div className="readiness-top"><span>Launch readiness</span><strong>{integrationConnected ? "3" : "2"} of 4 complete</strong></div><div className="readiness-score"><strong>{readiness}%</strong><span>{overview.plan.toLowerCase()} workspace</span></div><div aria-label={`${readiness} percent complete`} className="readiness-track" role="progressbar" aria-valuemax={100} aria-valuemin={0} aria-valuenow={readiness}><i style={{ width: `${readiness}%` }} /></div><p><Check size={13} /> {overview.balance} interview credits ready</p></div>
     </header>
   );
 }
 
-function LaunchChecklist({ integrationConnected }: { integrationConnected: boolean }) {
+function LaunchChecklist({ billingHref, integrationConnected }: {
+  billingHref: string;
+  integrationConnected: boolean;
+}) {
   return (
-    <section className="getting-started"><div className="card-heading"><span>Launch checklist</span><h2>Prepare your first protected interview.</h2><p>A focused path from workspace setup to interview day.</p></div><div className="setup-list"><SetupItem done label="Organization workspace created" /><SetupItem done href="/dashboard/subscription" label="Starter capacity activated" /><SetupItem done={integrationConnected} href="/dashboard/integrations" label="Connect Google Meet calendar" /><SetupItem href="/dashboard/meetings" label="Review discovered interviews" /></div></section>
+    <section className="getting-started"><div className="card-heading"><span>Launch checklist</span><h2>Prepare your first protected interview.</h2><p>A focused path from workspace setup to interview day.</p></div><div className="setup-list"><SetupItem done label="Organization workspace created" /><SetupItem done external href={billingHref} label="Starter capacity activated" /><SetupItem done={integrationConnected} href="/dashboard/integrations" label="Connect Google Meet calendar" /><SetupItem href="/dashboard/meetings" label="Review discovered interviews" /></div></section>
   );
 }
 
@@ -65,8 +71,15 @@ function StatCard({ icon: Icon, label, value, note }: { icon: typeof Link2; labe
   return <article className="stat-card"><div className="stat-card-top"><span>{label}</span><i><Icon aria-hidden size={17} /></i></div><strong>{value}</strong><small>{note}</small></article>;
 }
 
-function SetupItem({ label, href, done = false }: { label: string; href?: string; done?: boolean }) {
+function SetupItem({ label, href, done = false, external = false }: {
+  label: string;
+  href?: string;
+  done?: boolean;
+  external?: boolean;
+}) {
   const content = <><i>{done && <Check size={12} />}</i><span>{label}</span>{href && <ArrowRight aria-hidden size={14} />}</>;
   const className = `setup-item${done ? " done" : ""}`;
-  return href ? <Link className={className} href={href}>{content}</Link> : <div className={className}>{content}</div>;
+  if (!href) return <div className={className}>{content}</div>;
+  return external ? <a className={className} href={href}>{content}</a>
+    : <Link className={className} href={href}>{content}</Link>;
 }

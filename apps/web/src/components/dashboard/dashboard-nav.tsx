@@ -15,11 +15,26 @@ const nav = [
   [PlugZap, "Integrations", "/dashboard/integrations"],
 ] as const;
 
-export function DashboardNav({ canViewBilling }: { canViewBilling: boolean }) {
-  const pathname = usePathname();
+export function DashboardNav({ canViewBilling, dashboardOrigin, paymentOrigin }: {
+  canViewBilling: boolean;
+  dashboardOrigin: string;
+  paymentOrigin: string;
+}) {
+  const pathname = usePathname() ?? "";
+  const onPaymentSurface = pathname === "/dashboard/subscription"
+    || pathname.startsWith("/dashboard/subscription/");
   return nav.filter(([, , href]) => href !== "/dashboard/subscription" || canViewBilling)
     .map(([Icon, label, href]) => {
     const active = pathname === href;
-    return <Link aria-current={active ? "page" : undefined} className={active ? "active" : undefined} href={href} key={href}><Icon aria-hidden size={18} /><span>{label}</span></Link>;
+    const billingRoute = href === "/dashboard/subscription";
+    const crossSurface = billingRoute !== onPaymentSurface;
+    const content = <><Icon aria-hidden size={18} /><span>{label}</span></>;
+    const props = { "aria-current": active ? "page" as const : undefined,
+      className: active ? "active" : undefined };
+    if (crossSurface) {
+      const featureOrigin = billingRoute ? paymentOrigin : dashboardOrigin;
+      return <a {...props} href={new URL(href, featureOrigin).toString()} key={href}>{content}</a>;
+    }
+    return <Link {...props} href={href} key={href}>{content}</Link>;
     });
 }
