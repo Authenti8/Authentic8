@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 const apiBaseUrl = process.env.NODE_ENV === "production"
   ? `${requiredOrigin("APP_ORIGIN")}/api`
-  : process.env.API_ORIGIN ?? "http://localhost:4000";
+  : process.env.AUTHENTI8_E2E_API_ORIGIN ?? process.env.API_ORIGIN ?? "http://localhost:4000";
 
 export async function getSession() {
   const cookieHeader = (await cookies()).toString();

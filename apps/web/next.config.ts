@@ -2,12 +2,24 @@ import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
 import { resolve } from "node:path";
 
+const e2eOriginOverride = process.env.AUTHENTI8_E2E_ORIGIN;
+const e2eApiOriginOverride = process.env.AUTHENTI8_E2E_API_ORIGIN;
 loadEnvConfig(
   resolve(process.cwd(), "../.."),
   process.env.NODE_ENV !== "production",
   undefined,
   true,
 );
+
+if (e2eOriginOverride && process.env.NODE_ENV !== "production") {
+  process.env.AUTHENTI8_E2E_ORIGIN = e2eOriginOverride;
+  for (const name of ["APP_ORIGIN", "AUTH_ORIGIN", "ONBOARDING_ORIGIN", "DASHBOARD_ORIGIN",
+    "PAYMENT_ORIGIN"] as const) process.env[name] = e2eOriginOverride;
+  if (e2eApiOriginOverride) {
+    process.env.AUTHENTI8_E2E_API_ORIGIN = e2eApiOriginOverride;
+    process.env.API_ORIGIN = e2eApiOriginOverride;
+  }
+}
 
 deploymentUrl("APP_ORIGIN", "http://localhost:3000");
 validateInstallerUrl();

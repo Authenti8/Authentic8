@@ -21,9 +21,14 @@
     "accuracy:macos": "npm run build -w @authenti8/macos-agent && node scripts/accuracy-runner.mjs --platform MACOS",
     "accuracy:fixtures": "AUTHENTI8_ACCURACY_FIXTURE_MODE=true AUTHENTI8_ACCURACY_ALLOW_FIXTURES=true npm run accuracy",
     "accuracy:upload": "node scripts/upload-accuracy-results.mjs",
-    "hooks:install": "git config core.hooksPath .githooks"
+    "hooks:install": "git config core.hooksPath .githooks",
+    "pretest:e2e": "npm run build -w @authenti8/api",
+    "test:e2e": "playwright test",
+    "pretest:e2e:ui": "npm run build -w @authenti8/api",
+    "test:e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/node": "^20",
     "concurrently": "^9.2.4",
     "eslint": "^9",

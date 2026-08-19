@@ -1,20 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const landingOrigin = process.env.APP_ORIGIN ?? "http://localhost:3000";
-const authOrigin = process.env.AUTH_ORIGIN ?? landingOrigin;
-const onboardingOrigin = process.env.ONBOARDING_ORIGIN ?? landingOrigin;
-const dashboardOrigin = process.env.DASHBOARD_ORIGIN ?? landingOrigin;
-const paymentOrigin = process.env.PAYMENT_ORIGIN ?? dashboardOrigin;
+const testOrigin = process.env.NODE_ENV !== "production"
+  ? process.env.AUTHENTI8_E2E_ORIGIN
+  : undefined;
+const landingOrigin = testOrigin ?? process.env.APP_ORIGIN ?? "http://localhost:3000";
+const authOrigin = testOrigin ?? process.env.AUTH_ORIGIN ?? landingOrigin;
+const onboardingOrigin = testOrigin ?? process.env.ONBOARDING_ORIGIN ?? landingOrigin;
+const dashboardOrigin = testOrigin ?? process.env.DASHBOARD_ORIGIN ?? landingOrigin;
+const paymentOrigin = testOrigin ?? process.env.PAYMENT_ORIGIN ?? dashboardOrigin;
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const canonicalOrigin = originForPath(pathname);
-  if (canonicalOrigin && new URL(canonicalOrigin).host !== request.nextUrl.host) {
+  if (!testOrigin && canonicalOrigin && new URL(canonicalOrigin).host !== request.nextUrl.host) {
     return NextResponse.redirect(new URL(`${pathname}${search}`, canonicalOrigin));
   }
 
   const rootDestination = rootPathForHost(request.nextUrl.host);
-  if (pathname === "/" && rootDestination) {
+  if (!testOrigin && pathname === "/" && rootDestination) {
     return NextResponse.redirect(new URL(rootDestination, request.url));
   }
 

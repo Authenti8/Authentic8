@@ -10,6 +10,8 @@ node_modules/
 
 # Tests
 /coverage/
+/playwright-report/
+/test-results/
 /accuracy-results.json
 /accuracy-runner-results/
 
