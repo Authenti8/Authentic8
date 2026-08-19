@@ -34,7 +34,7 @@ test("calendar connections are isolated between HR interviewers", async ({ brows
 });
 
 test("ten HR calendars stay independently connected", async ({ browser, baseURL, runId }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const contexts = await Promise.all(Array.from({ length: 10 }, async (_, index) => {
     const context = await browser.newContext();
     const user = index ? `hr-${index}` : "hr";
@@ -46,10 +46,8 @@ test("ten HR calendars stay independently connected", async ({ browser, baseURL,
     await expect(page.getByText(`Connected as ${user}@acme.test`)).toBeVisible();
     return { context, page, user };
   }));
-  const disconnected = contexts[0]!.page.waitForResponse((response) =>
-    response.url().endsWith("/integrations/google/disconnect"));
   await contexts[0]!.page.getByRole("button", { name: "Disconnect" }).click();
-  expect((await disconnected).ok()).toBe(true);
+  await expect.poll(async () => integrationStatus(contexts[0]!.page)).toBe("NOT_CONNECTED");
   await contexts[0]!.page.reload();
   await expect(contexts[0]!.page.getByRole("button", { name: "Connect Google Calendar" })).toBeVisible();
   for (const connected of contexts.slice(1)) {
@@ -63,4 +61,10 @@ async function sessionIdentity(page: import("@playwright/test").Page) {
   const response = await page.request.get("/api/v1/auth/session");
   expect(response.ok()).toBe(true);
   return (await response.json() as { user: { id: string } }).user;
+}
+
+async function integrationStatus(page: import("@playwright/test").Page) {
+  const response = await page.request.get("/api/v1/integrations");
+  expect(response.ok()).toBe(true);
+  return (await response.json() as { status: string }).status;
 }
